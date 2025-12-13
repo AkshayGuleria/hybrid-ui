@@ -87,3 +87,41 @@
 .login-button:active {
   transform: translateY(0);
 }
+
+.login-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.login-button:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.login-hint {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #eee;
+  font-size: 13px;
+  color: #666;
+}
+
+.login-hint p {
+  margin: 0 0 8px 0;
+  font-weight: 500;
+  color: #333;
+}
+
+.login-hint ul {
+  margin: 0;
+  padding-left: 20px;
+  list-style-type: none;
+}
+
+.login-hint li {
+  margin: 4px 0;
+  font-family: 'Courier New', monospace;
+  color: #667eea;
+  font-size: 12px;
+}

@@ -1,13 +1,16 @@
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
-function Login({ onLogin }) {
+function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const { login, loading, error: authError } = useAuth();
   const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
 
     // Simple client-side validation
     if (!username || !password) {
@@ -15,13 +18,11 @@ function Login({ onLogin }) {
       return;
     }
 
-    // For now, accept any non-empty credentials
-    // In production, this would validate against a backend
-    if (username && password) {
-      // Call onLogin to show Analytics page
-      onLogin();
-    } else {
-      setError('Invalid credentials');
+    // Call IAM service through AuthContext
+    const result = await login(username, password);
+
+    if (!result.success) {
+      setError(result.error || 'Login failed');
     }
   };
 
@@ -56,9 +57,18 @@ function Login({ onLogin }) {
 
           {error && <div className="error-message">{error}</div>}
 
-          <button type="submit" className="login-button">
-            Login
+          <button type="submit" className="login-button" disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
           </button>
+
+          <div className="login-hint">
+            <p>Demo credentials:</p>
+            <ul>
+              <li>admin / admin123</li>
+              <li>user / user123</li>
+              <li>demo / demo123</li>
+            </ul>
+          </div>
         </form>
       </div>
     </div>
