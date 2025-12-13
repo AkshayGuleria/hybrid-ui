@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  frontdoor-app:
+    build:
+      context: ./packages/frontdoor-app
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    container_name: frontdoor-app
+    restart: unless-stopped
+
+  main-app:
+    build:
+      context: ./packages/main-app
+      dockerfile: Dockerfile
+    ports:
+      - "5174:80"
+    container_name: main-app
+    restart: unless-stopped
