@@ -45,7 +45,7 @@ function App() {
   // App links for navigation
   const appLinks = [
     { label: 'CRM', href: 'http://localhost:5174', icon: '📊' },
-    // { label: 'Revenue', href: 'http://localhost:5175', icon: '💰' }
+    { label: 'Revenue', href: 'http://localhost:5175', icon: '💰' }
   ];
 
   // Show loading state while checking session
@@ -88,12 +88,11 @@ function App() {
                 <p>Customer Relationship Management</p>
               </a>
 
-              <div className="app-card placeholder">
+              <a href="http://localhost:5175" className="app-card">
                 <div className="app-icon">💰</div>
                 <h3>Revenue Management</h3>
                 <p>Financial Analytics & Billing</p>
-                <span className="coming-soon">Coming Soon</span>
-              </div>
+              </a>
             </div>
           </div>
         </div>

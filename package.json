@@ -10,7 +10,9 @@
     "dev:frontdoor": "npm run dev --workspace=@hybrid-ui/frontdoor-app",
     "build:frontdoor": "npm run build --workspace=@hybrid-ui/frontdoor-app",
     "dev:crm": "npm run dev --workspace=@hybrid-ui/crm-app",
-    "build:crm": "npm run build --workspace=@hybrid-ui/crm-app"
+    "build:crm": "npm run build --workspace=@hybrid-ui/crm-app",
+    "dev:revenue": "npm run dev --workspace=@hybrid-ui/revenue-app",
+    "build:revenue": "npm run build --workspace=@hybrid-ui/revenue-app"
   },
   "devDependencies": {},
   "engines": {
