@@ -14,10 +14,10 @@ export function TopNavigation({ user, onLogout, appLinks = [] }) {
   return (
     <nav className="top-navigation">
       <div className="nav-container">
-        <div className="nav-brand">
+        <a href="http://localhost:5173" className="nav-brand">
           <span className="nav-icon">🏠</span>
           <span className="nav-title">Hybrid UI</span>
-        </div>
+        </a>
 
         <div className="nav-links">
           {appLinks.map((link, index) => (
