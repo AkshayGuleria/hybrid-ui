@@ -15,7 +15,8 @@
       "Bash(npm run dev:crm:*)",
       "Skill(billman)",
       "Bash(npm run dev:revenue:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
