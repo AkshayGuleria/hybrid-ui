@@ -61,7 +61,7 @@ function App() {
   // App links for navigation
   const appLinks = [
     { label: 'CRM', href: 'http://localhost:5174', icon: '📊' },
-    // { label: 'Revenue', href: 'http://localhost:5175', icon: '💰' } // Uncomment when revenue app is ready
+    { label: 'Revenue', href: 'http://localhost:5175', icon: '💰' }
   ];
 
   // Show loading state while checking authentication

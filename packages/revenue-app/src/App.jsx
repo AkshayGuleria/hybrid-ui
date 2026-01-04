@@ -86,20 +86,22 @@ function App() {
       <TopNavigation user={user} onLogout={handleLogout} appLinks={appLinks} />
 
       <div className="view-tabs">
-        <button
-          className={currentView === 'dashboard' ? 'tab-btn active' : 'tab-btn'}
-          onClick={() => setCurrentView('dashboard')}
-        >
-          <span className="tab-icon">📊</span>
-          Dashboard
-        </button>
-        <button
-          className={currentView === 'invoices' ? 'tab-btn active' : 'tab-btn'}
-          onClick={() => setCurrentView('invoices')}
-        >
-          <span className="tab-icon">📄</span>
-          Invoices
-        </button>
+        <div className="view-tabs-container">
+          <button
+            className={currentView === 'dashboard' ? 'tab-btn active' : 'tab-btn'}
+            onClick={() => setCurrentView('dashboard')}
+          >
+            <span className="tab-icon">📊</span>
+            Dashboard
+          </button>
+          <button
+            className={currentView === 'invoices' ? 'tab-btn active' : 'tab-btn'}
+            onClick={() => setCurrentView('invoices')}
+          >
+            <span className="tab-icon">📄</span>
+            Invoices
+          </button>
+        </div>
       </div>
 
       <main className="main-content">
