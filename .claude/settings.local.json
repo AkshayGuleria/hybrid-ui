@@ -12,7 +12,10 @@
       "Skill(niko)",
       "Bash(npm run dev:frontdoor:*)",
       "Skill(yap)",
-      "Bash(npm run dev:crm:*)"
+      "Bash(npm run dev:crm:*)",
+      "Skill(billman)",
+      "Bash(npm run dev:revenue:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
