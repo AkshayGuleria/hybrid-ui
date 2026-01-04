@@ -1,0 +1,105 @@
+import React from 'react';
+import { useAuth } from '@hybrid-ui/shared';
+import { TopNavigation } from '@hybrid-ui/shared';
+import { Login } from './components/Login';
+import './App.css';
+
+/**
+ * Frontdoor App - Main Component
+ * Handles authentication and navigation to other apps
+ */
+function App() {
+  const { user, loading, error, login, logout, isAuthenticated } = useAuth();
+
+  const handleLogin = async (username, password) => {
+    const result = await login(username, password);
+    if (result.success) {
+      // Check for returnTo parameter
+      const params = new URLSearchParams(window.location.search);
+      const returnTo = params.get('returnTo');
+
+      if (returnTo) {
+        // Get the user data from localStorage
+        const userDataStr = localStorage.getItem('user');
+        if (userDataStr) {
+          const userData = JSON.parse(userDataStr);
+
+          // Encode user data to pass via URL
+          const encodedUser = encodeURIComponent(JSON.stringify(userData));
+
+          // Build the redirect URL with user data
+          const separator = returnTo.includes('?') ? '&' : '?';
+          const redirectUrl = `${returnTo}${separator}user=${encodedUser}`;
+
+          // Redirect to the returnTo URL with user data
+          window.location.href = redirectUrl;
+        }
+      }
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  // App links for navigation
+  const appLinks = [
+    { label: 'CRM', href: 'http://localhost:5174', icon: '📊' },
+    // { label: 'Revenue', href: 'http://localhost:5175', icon: '💰' }
+  ];
+
+  // Show loading state while checking session
+  if (loading && !user) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner">⏳</div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  // Show login if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} loading={loading} error={error} />;
+  }
+
+  // Show authenticated view with navigation
+  return (
+    <div className="app">
+      <TopNavigation user={user} onLogout={handleLogout} appLinks={appLinks} />
+
+      <main className="main-content">
+        <div className="welcome-section">
+          <h1>Welcome, {user.username}! 👋</h1>
+          <p className="welcome-message">
+            You're successfully logged in to the Frontdoor app.
+          </p>
+
+          <div className="app-launcher">
+            <h2>Available Applications</h2>
+            <p className="launcher-description">
+              Your applications will appear here once they're integrated.
+            </p>
+
+            <div className="app-grid">
+              <a href="http://localhost:5174" className="app-card">
+                <div className="app-icon">📊</div>
+                <h3>CRM</h3>
+                <p>Customer Relationship Management</p>
+              </a>
+
+              <div className="app-card placeholder">
+                <div className="app-icon">💰</div>
+                <h3>Revenue Management</h3>
+                <p>Financial Analytics & Billing</p>
+                <span className="coming-soon">Coming Soon</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default App;

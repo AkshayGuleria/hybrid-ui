@@ -1,0 +1,20 @@
+{
+  "name": "hybrid-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-app hybrid UI project",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:frontdoor": "npm run dev --workspace=@hybrid-ui/frontdoor-app",
+    "build:frontdoor": "npm run build --workspace=@hybrid-ui/frontdoor-app",
+    "dev:crm": "npm run dev --workspace=@hybrid-ui/crm-app",
+    "build:crm": "npm run build --workspace=@hybrid-ui/crm-app"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

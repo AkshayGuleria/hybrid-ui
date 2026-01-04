@@ -1,0 +1,15 @@
+{
+  "name": "@hybrid-ui/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./components/TopNavigation": "./src/components/TopNavigation.jsx",
+    "./hooks/useAuth": "./src/hooks/useAuth.js"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  }
+}

@@ -1,9 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Skill(brainstorming-with-tommi)",
+      "Bash(docker compose:*)",
+      "Bash(docker:*)",
+      "Bash(docker-compose:*)",
+      "Bash(curl:*)",
+      "Bash(chmod:*)",
+      "Bash(rm:*)",
+      "Skill(niko)",
+      "Bash(npm run dev:frontdoor:*)",
+      "Skill(yap)",
+      "Bash(npm run dev:crm:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "outputStyle": "default"
 }
