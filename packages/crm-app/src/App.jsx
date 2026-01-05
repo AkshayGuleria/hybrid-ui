@@ -7,65 +7,65 @@ import './App.css';
 /**
  * CRM App - Main Component
  * Protected app that requires authentication
+ *
+ * Authentication Flow:
+ * 1. Check URL for sessionToken + user (from frontdoor redirect)
+ * 2. If found, store in localStorage and reload
+ * 3. If not found and no local session, redirect to frontdoor
+ * 4. Logout clears local session and redirects to frontdoor with ?logout=true
  */
 function App() {
-  const { user, loading, logout, isAuthenticated, login } = useAuth();
+  const {
+    user,
+    loading,
+    logout,
+    isAuthenticated,
+    initSessionFromURL,
+    buildAuthUrl
+  } = useAuth();
+
   const [authChecked, setAuthChecked] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    // Check if user data is passed via URL (from frontdoor redirect)
-    const checkAuthFromURL = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const userData = params.get('user');
+    // Check if session data is passed via URL (from frontdoor redirect)
+    const sessionFromURL = initSessionFromURL();
 
-      if (userData) {
-        try {
-          // Decode and parse user data from URL
-          const decodedUser = JSON.parse(decodeURIComponent(userData));
+    if (sessionFromURL) {
+      // Session was initialized from URL, reload to pick up the new state
+      window.location.reload();
+      return;
+    }
 
-          // Store in localStorage for this origin
-          localStorage.setItem('user', JSON.stringify(decodedUser));
-
-          // Clean up URL
-          window.history.replaceState({}, '', window.location.pathname);
-
-          // Reload to pick up the new auth state
-          window.location.reload();
-          return;
-        } catch (err) {
-          console.error('Error parsing user data from URL:', err);
-        }
-      }
-
-      setAuthChecked(true);
-    };
-
-    checkAuthFromURL();
+    setAuthChecked(true);
   }, []);
 
   useEffect(() => {
+    // Don't redirect if logout is in progress
+    if (isLoggingOut) return;
+
     // If not authenticated and auth check is done, redirect to frontdoor login
     if (authChecked && !loading && !isAuthenticated) {
       // Redirect to frontdoor (port 5173) with full returnTo URL
       const returnUrl = encodeURIComponent(window.location.href);
       window.location.href = `http://localhost:5173/?returnTo=${returnUrl}`;
     }
-  }, [authChecked, loading, isAuthenticated]);
+  }, [authChecked, loading, isAuthenticated, isLoggingOut]);
 
   const handleLogout = () => {
+    setIsLoggingOut(true);
     logout();
-    // Redirect to frontdoor on port 5173
-    window.location.href = 'http://localhost:5173/';
+    window.location.href = 'http://localhost:5173/?logout=true';
   };
 
-  // App links for navigation
+  // App links for navigation (with session data for cross-origin auth)
   const appLinks = [
-    { label: 'CRM', href: 'http://localhost:5174', icon: '📊' },
-    { label: 'Revenue', href: 'http://localhost:5175', icon: '💰' }
+    { label: 'CRM', href: buildAuthUrl('http://localhost:5174'), icon: '📊' },
+    { label: 'Revenue', href: buildAuthUrl('http://localhost:5175'), icon: '💰' }
   ];
 
   // Show loading state while checking authentication
-  if (loading) {
+  if (loading || !authChecked) {
     return (
       <div className="loading-container">
         <div className="loading-spinner">⏳</div>
