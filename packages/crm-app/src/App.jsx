@@ -29,14 +29,9 @@ function App() {
 
   useEffect(() => {
     // Check if session data is passed via URL (from frontdoor redirect)
-    const sessionFromURL = initSessionFromURL();
-
-    if (sessionFromURL) {
-      // Session was initialized from URL, reload to pick up the new state
-      window.location.reload();
-      return;
-    }
-
+    // initSessionFromURL() already updates React state via setSession(),
+    // so no reload needed - just let React re-render with new state
+    initSessionFromURL();
     setAuthChecked(true);
   }, []);
 
