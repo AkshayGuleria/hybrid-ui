@@ -99,6 +99,10 @@
   border: 2px solid transparent;
 }
 
+.customer-card.clickable {
+  cursor: pointer;
+}
+
 .customer-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);

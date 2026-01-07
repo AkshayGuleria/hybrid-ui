@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { mockInvoices } from '../data/mockInvoices';
 import './InvoiceList.css';
 
@@ -7,6 +8,7 @@ import './InvoiceList.css';
  * Displays all invoices with filtering and status
  */
 export function InvoiceList() {
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState(mockInvoices);
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -113,7 +115,11 @@ export function InvoiceList() {
           </thead>
           <tbody>
             {invoices.map((invoice) => (
-              <tr key={invoice.id} className={isOverdue(invoice) ? 'overdue-row' : ''}>
+              <tr
+                key={invoice.id}
+                className={`clickable-row ${isOverdue(invoice) ? 'overdue-row' : ''}`}
+                onClick={() => navigate(`/invoices/${invoice.id}`)}
+              >
                 <td className="invoice-id">{invoice.id}</td>
                 <td className="customer-name">{invoice.customerName}</td>
                 <td className="amount">{formatCurrency(invoice.amount)}</td>
@@ -125,8 +131,12 @@ export function InvoiceList() {
                     {invoice.status}
                   </span>
                 </td>
-                <td className="actions">
-                  <button className="action-btn view" title="View Invoice">
+                <td className="actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="action-btn view"
+                    title="View Invoice"
+                    onClick={() => navigate(`/invoices/${invoice.id}`)}
+                  >
                     👁️
                   </button>
                   <button className="action-btn download" title="Download PDF">

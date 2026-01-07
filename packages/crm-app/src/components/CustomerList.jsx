@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { mockCustomers, searchCustomers } from '../data/mockCustomers';
 import './CustomerList.css';
 
@@ -7,6 +8,7 @@ import './CustomerList.css';
  * Displays all customers with search and filter capabilities
  */
 export function CustomerList() {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState(mockCustomers);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -131,7 +133,11 @@ export function CustomerList() {
       ) : (
         <div className="customers-grid">
           {customers.map((customer) => (
-            <div key={customer.id} className="customer-card">
+            <div
+              key={customer.id}
+              className="customer-card clickable"
+              onClick={() => navigate(`/customers/${customer.id}`)}
+            >
               <div className="card-header">
                 <div className="customer-avatar">
                   {customer.name.charAt(0)}

@@ -1,56 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '@hybrid-ui/shared';
-import { TopNavigation } from '@hybrid-ui/shared';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth, TopNavigation, ProtectedRoute, NotFound } from '@hybrid-ui/shared';
 import { RevenueDashboard } from './components/RevenueDashboard';
 import { InvoiceList } from './components/InvoiceList';
+import { InvoiceDetail } from './components/InvoiceDetail';
 import './App.css';
 
 /**
  * Revenue App - Main Component
  * Protected app that requires authentication
  *
- * Authentication Flow:
- * 1. Check URL for sessionToken + user (from frontdoor redirect)
- * 2. If found, store in localStorage and reload
- * 3. If not found and no local session, redirect to frontdoor
- * 4. Logout clears local session and redirects to frontdoor with ?logout=true
+ * Routes:
+ * - / → Redirect to /dashboard
+ * - /dashboard → Revenue dashboard
+ * - /invoices → Invoice list
+ * - /invoices/:id → Invoice detail view
+ * - * → 404 Not Found
  */
-function App() {
-  const {
-    user,
-    loading,
-    logout,
-    isAuthenticated,
-    initSessionFromURL,
-    buildAuthUrl
-  } = useAuth();
-
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'invoices'
-
-  useEffect(() => {
-    // Check if session data is passed via URL (from frontdoor redirect)
-    // initSessionFromURL() already updates React state via setSession(),
-    // so no reload needed - just let React re-render with new state
-    initSessionFromURL();
-    setAuthChecked(true);
-  }, []);
-
-  useEffect(() => {
-    // Don't redirect if logout is in progress
-    if (isLoggingOut) return;
-
-    // If not authenticated and auth check is done, redirect to frontdoor login
-    if (authChecked && !loading && !isAuthenticated) {
-      // Redirect to frontdoor (port 5173) with full returnTo URL
-      const returnUrl = encodeURIComponent(window.location.href);
-      window.location.href = `http://localhost:5173/?returnTo=${returnUrl}`;
-    }
-  }, [authChecked, loading, isAuthenticated, isLoggingOut]);
+function AppContent() {
+  const { user, logout, buildAuthUrl } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
-    setIsLoggingOut(true);
     logout();
     window.location.href = 'http://localhost:5173/?logout=true';
   };
@@ -61,20 +33,9 @@ function App() {
     { label: 'Revenue', href: buildAuthUrl('http://localhost:5175'), icon: '💰' }
   ];
 
-  // Show loading state while checking authentication
-  if (loading || !authChecked) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner">⏳</div>
-        <p>Loading Revenue Management...</p>
-      </div>
-    );
-  }
-
-  // Don't render anything if not authenticated (redirect will happen)
-  if (!isAuthenticated) {
-    return null;
-  }
+  // Determine current view from URL
+  const isDashboard = location.pathname === '/dashboard' || location.pathname === '/';
+  const isInvoices = location.pathname.startsWith('/invoices');
 
   return (
     <div className="app">
@@ -83,15 +44,15 @@ function App() {
       <div className="view-tabs">
         <div className="view-tabs-container">
           <button
-            className={currentView === 'dashboard' ? 'tab-btn active' : 'tab-btn'}
-            onClick={() => setCurrentView('dashboard')}
+            className={isDashboard ? 'tab-btn active' : 'tab-btn'}
+            onClick={() => navigate('/dashboard')}
           >
             <span className="tab-icon">📊</span>
             Dashboard
           </button>
           <button
-            className={currentView === 'invoices' ? 'tab-btn active' : 'tab-btn'}
-            onClick={() => setCurrentView('invoices')}
+            className={isInvoices ? 'tab-btn active' : 'tab-btn'}
+            onClick={() => navigate('/invoices')}
           >
             <span className="tab-icon">📄</span>
             Invoices
@@ -100,9 +61,32 @@ function App() {
       </div>
 
       <main className="main-content">
-        {currentView === 'dashboard' ? <RevenueDashboard /> : <InvoiceList />}
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<RevenueDashboard />} />
+          <Route path="/invoices" element={<InvoiceList />} />
+          <Route path="/invoices/:id" element={<InvoiceDetail />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AppContent />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

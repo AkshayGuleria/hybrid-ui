@@ -107,6 +107,10 @@
   transition: background-color 0.2s;
 }
 
+.invoices-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
 .invoices-table tbody tr:hover {
   background-color: #f7fafc;
 }

@@ -1,11 +1,11 @@
 ---
 id: routing
 title: Add Client-Side Routing
-status: planned
+status: review
 priority: high
-assignee: null
+assignee: niko, yap, billman
 created: 2025-01-07
-updated: 2025-01-07
+updated: 2026-01-07
 dependencies: []
 blocks: [crm-crud, user-settings]
 ---
@@ -52,31 +52,31 @@ Add React Router (v6) to CRM and Revenue apps with a consistent route structure:
 
 ## Acceptance Criteria
 
-- [ ] CRM has working /customers route with list view
-- [ ] CRM has working /customers/:id route with detail view
-- [ ] Revenue has working /dashboard route
-- [ ] Revenue has working /invoices route with list view
-- [ ] Revenue has working /invoices/:id route with detail view
-- [ ] Auth protection works when entering on any route
-- [ ] Cross-origin auth transfer works on nested routes
-- [ ] Browser back/forward navigation works correctly
-- [ ] URLs are shareable and bookmarkable
-- [ ] 404 handling for unknown routes
+- [x] CRM has working /customers route with list view
+- [x] CRM has working /customers/:id route with detail view
+- [x] Revenue has working /dashboard route
+- [x] Revenue has working /invoices route with list view
+- [x] Revenue has working /invoices/:id route with detail view
+- [x] Auth protection works when entering on any route
+- [x] Cross-origin auth transfer works on nested routes
+- [x] Browser back/forward navigation works correctly
+- [x] URLs are shareable and bookmarkable
+- [x] 404 handling for unknown routes
 
 ## Subtasks
 
 | ID | Task | Status | Assignee | Notes |
 |----|------|--------|----------|-------|
-| 1 | Install react-router-dom in CRM app | planned | yap | npm install |
-| 2 | Create CRM route structure and Router setup | planned | yap | /customers, /customers/:id |
-| 3 | Create CustomerDetail component | planned | yap | View single customer |
-| 4 | Install react-router-dom in Revenue app | planned | billman | npm install |
-| 5 | Create Revenue route structure and Router setup | planned | billman | /dashboard, /invoices, /invoices/:id |
-| 6 | Create InvoiceDetail component | planned | billman | View single invoice |
-| 7 | Create shared ProtectedRoute component | planned | niko | Auth check wrapper |
-| 8 | Update auth to handle route-level protection | planned | niko | initSessionFromURL on any route |
-| 9 | Test cross-app navigation with routing | planned | | All routes work |
-| 10 | Add 404 Not Found handling | planned | | Both apps |
+| 1 | Install react-router-dom in CRM app | done | yap | npm install |
+| 2 | Create CRM route structure and Router setup | done | yap | /customers, /customers/:id |
+| 3 | Create CustomerDetail component | done | yap | View single customer |
+| 4 | Install react-router-dom in Revenue app | done | billman | npm install |
+| 5 | Create Revenue route structure and Router setup | done | billman | /dashboard, /invoices, /invoices/:id |
+| 6 | Create InvoiceDetail component | done | billman | View single invoice |
+| 7 | Create shared ProtectedRoute component | done | niko | Auth check wrapper |
+| 8 | Update auth to handle route-level protection | done | niko | initSessionFromURL on any route |
+| 9 | Test cross-app navigation with routing | done | | All routes work |
+| 10 | Add 404 Not Found handling | done | | Both apps (shared NotFound component) |
 
 ## Technical Notes
 
@@ -139,6 +139,16 @@ export function ProtectedRoute({ children }) {
 ```
 
 ## Progress Log
+
+### 2026-01-07
+- **Implementation complete** - All subtasks done, moved to review
+- **niko**: Created ProtectedRoute and NotFound components in shared package
+- **yap**: Installed react-router-dom, created route structure, CustomerDetail component
+- **billman**: Installed react-router-dom, created route structure, InvoiceDetail component
+- Added clickable navigation from list views to detail views
+- All 10 acceptance criteria met
+- Feature moved to in-progress
+- Assigned to niko (shared auth), yap (CRM), billman (Revenue)
 
 ### 2025-01-07
 - Initial spec created by tapsa
