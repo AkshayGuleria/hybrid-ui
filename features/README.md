@@ -11,6 +11,7 @@ This directory contains feature specifications and tracks project progress for t
 | [routing](./routing/) | **done** | high | niko, yap, billman | 100% |
 | [api-layer](./api-layer/) | **done** | high | yap, billman | 100% |
 | [crm-crud](./crm-crud/) | **done** | medium | yap | 100% |
+| [cross-origin-logout](./cross-origin-logout/) | planned | high | niko | 0% |
 
 ## How It Works
 
@@ -52,11 +53,15 @@ This directory contains feature specifications and tracks project progress for t
 
 ```
 features/
-├── README.md           # This file - overview and status
-├── _template.md        # Template for new features
-├── routing/            # Client-side routing feature
+├── README.md                # This file - overview and status
+├── _template.md             # Template for new features
+├── routing/                 # Client-side routing feature
 │   └── README.md
-├── api-layer/          # Shared API abstraction layer
+├── api-layer/               # Shared API abstraction layer
+│   └── README.md
+├── crm-crud/                # Customer CRUD operations
+│   └── README.md
+├── cross-origin-logout/     # Fix cross-origin logout localStorage clearing
 │   └── README.md
 └── [future-features]/
     └── README.md
