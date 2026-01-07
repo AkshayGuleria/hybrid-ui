@@ -118,13 +118,102 @@ const appLinks = [
 
 The repository includes specialized Claude Code agents for different domains:
 
-- **niko** (`/niko`) - Frontdoor agent: authentication UI, login flows, navigation shell
-- **yap** (`/yap`) - CRM agent: customer management, contact tracking, sales pipeline
-- **billman** (`/billman`) - Revenue agent: financial analytics, billing, invoicing
-- **habibi** (`/habibi`) - DevOps agent: Docker, nginx, deployment, infrastructure
-- **brainstorming-with-tommi** - Brainstorming and validation before implementation
+| Agent | Command | Domain | Territory |
+|-------|---------|--------|-----------|
+| **niko** | `/niko` | Frontdoor | Auth UI, login flows, navigation shell |
+| **yap** | `/yap` | CRM | Customer management, contacts, pipeline |
+| **billman** | `/billman` | Revenue | Financial analytics, billing, invoicing |
+| **habibi** | `/habibi` | DevOps | Docker, nginx, deployment, infrastructure |
+| **tapsa** | `/tapsa` | Project Management | Feature specs, task tracking, progress |
+| **tommi** | `/brainstorming-with-tommi` | Brainstorming | Idea validation, approach exploration |
 
-Each agent has exclusive ownership of their package directory and should not modify other apps.
+Each agent has exclusive ownership of their domain and should not modify other areas.
+
+### Agent Workflow
+
+```
+tommi (brainstorms) → tapsa (specs & tracks) → niko/yap/billman/habibi (implements)
+                              ↑
+                       auto-updates status
+```
+
+## Feature Management
+
+Features and project progress are tracked in the `features/` directory, managed by **tapsa**.
+
+### Features Directory Structure
+
+```
+features/
+├── README.md           # Overview and quick status table
+├── _template.md        # Template for new features
+├── routing/            # Feature: Client-side routing
+│   └── README.md
+├── api-layer/          # Feature: Shared API abstraction
+│   └── README.md
+└── [feature-name]/     # Future features
+    └── README.md
+```
+
+### Tapsa Commands
+
+```bash
+# Create a new feature
+/tapsa create [feature-name] - [description]
+
+# Check project status
+/tapsa status
+
+# Update feature status
+/tapsa update [feature-id] [status]
+
+# View feature details
+/tapsa show [feature-id]
+
+# Generate progress report
+/tapsa report
+
+# Add subtask to feature
+/tapsa add-task [feature-id] - [task description]
+
+# Mark subtask complete
+/tapsa complete [feature-id] [subtask-number]
+```
+
+### Feature Status Workflow
+
+```
+planned → in-progress → review → done
+              ↓
+           blocked
+```
+
+### Feature Spec Format
+
+Each feature has a README.md with YAML frontmatter:
+
+```markdown
+---
+id: feature-id
+title: Feature Title
+status: planned | in-progress | blocked | review | done
+priority: critical | high | medium | low
+assignee: niko | yap | billman | habibi | null
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+dependencies: []
+blocks: []
+---
+
+# Feature Title
+
+## Problem Statement
+## Proposed Solution
+## Acceptance Criteria
+## Subtasks (table with status)
+## Technical Notes
+## Progress Log
+```
 
 ## Adding a New App
 
