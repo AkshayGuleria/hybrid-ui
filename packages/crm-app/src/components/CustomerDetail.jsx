@@ -1,17 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useCustomer } from '@hybrid-ui/shared';
+import { useCustomer, useCustomerMutations } from '@hybrid-ui/shared';
+import { Modal } from './Modal';
+import { CustomerForm } from './CustomerForm';
+import { ConfirmDialog } from './ConfirmDialog';
+import { useToast } from './Toast';
 import './CustomerDetail.css';
 
 /**
  * CustomerDetail Component
  * Displays detailed information about a single customer
- * Now uses shared API layer with loading/error states
+ * Includes Edit and Delete functionality
  */
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const { customer, loading, error, refetch } = useCustomer(id);
+  const { updateCustomer, deleteCustomer, loading: mutationLoading } = useCustomerMutations();
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-US', {
@@ -40,6 +49,28 @@ export function CustomerDetail() {
         return 'status-badge status-inactive';
       default:
         return 'status-badge';
+    }
+  };
+
+  const handleUpdateCustomer = async (customerData) => {
+    const result = await updateCustomer(id, customerData);
+    if (result.success) {
+      toast.success('Customer updated successfully!');
+      setShowEditModal(false);
+      await refetch();
+    } else {
+      toast.error(result.error || 'Failed to update customer');
+    }
+  };
+
+  const handleDeleteCustomer = async () => {
+    const result = await deleteCustomer(id);
+    if (result.success) {
+      toast.success('Customer deleted successfully!');
+      navigate('/customers');
+    } else {
+      toast.error(result.error || 'Failed to delete customer');
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -184,11 +215,42 @@ export function CustomerDetail() {
           <button className="action-btn secondary">
             <span>📞</span> Call
           </button>
-          <button className="action-btn secondary">
+          <button className="action-btn secondary" onClick={() => setShowEditModal(true)}>
             <span>✏️</span> Edit
+          </button>
+          <button className="action-btn danger" onClick={() => setShowDeleteConfirm(true)}>
+            <span>🗑️</span> Delete
           </button>
         </div>
       </div>
+
+      {/* Edit Customer Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Customer"
+        size="medium"
+      >
+        <CustomerForm
+          customer={customer}
+          onSubmit={handleUpdateCustomer}
+          onCancel={() => setShowEditModal(false)}
+          loading={mutationLoading}
+        />
+      </Modal>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteCustomer}
+        title="Delete Customer"
+        message={`Are you sure you want to delete "${customer.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        loading={mutationLoading}
+      />
     </div>
   );
 }

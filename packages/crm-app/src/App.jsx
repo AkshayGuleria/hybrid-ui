@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, TopNavigation, ProtectedRoute, NotFound } from '@hybrid-ui/shared';
 import { CustomerList } from './components/CustomerList';
 import { CustomerDetail } from './components/CustomerDetail';
+import { ToastProvider } from './components/Toast';
 import './App.css';
 
 /**
@@ -47,16 +48,18 @@ function AppContent() {
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <AppContent />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+      <ToastProvider>
+        <Routes>
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <AppContent />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCustomers } from '@hybrid-ui/shared';
+import { useCustomers, useCustomerMutations } from '@hybrid-ui/shared';
+import { Modal } from './Modal';
+import { CustomerForm } from './CustomerForm';
+import { useToast } from './Toast';
 import './CustomerList.css';
 
 /**
  * CustomerList Component
- * Displays all customers with search and filter capabilities
+ * Displays all customers with search, filter, and create capabilities
  * Now uses shared API layer with loading/error states
  */
 export function CustomerList() {
   const navigate = useNavigate();
+  const toast = useToast();
   const { customers, loading, error, refetch, searchCustomers, filterByStatus } = useCustomers();
+  const { createCustomer, loading: mutationLoading } = useCustomerMutations();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [allCustomers, setAllCustomers] = useState([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Store all customers for count display
   useEffect(() => {
@@ -33,6 +40,17 @@ export function CustomerList() {
     setStatusFilter(status);
     setSearchQuery('');
     await filterByStatus(status);
+  };
+
+  const handleCreateCustomer = async (customerData) => {
+    const result = await createCustomer(customerData);
+    if (result.success) {
+      toast.success('Customer created successfully!');
+      setShowCreateModal(false);
+      await refetch();
+    } else {
+      toast.error(result.error || 'Failed to create customer');
+    }
   };
 
   const getStatusBadgeClass = (status) => {
@@ -99,6 +117,9 @@ export function CustomerList() {
           <h1>Customers</h1>
           <p className="subtitle">Manage your customer relationships</p>
         </div>
+        <button className="add-customer-btn" onClick={() => setShowCreateModal(true)}>
+          <span>➕</span> Add Customer
+        </button>
       </div>
 
       <div className="list-controls">
@@ -152,6 +173,9 @@ export function CustomerList() {
           <div className="empty-icon">🔍</div>
           <h3>No customers found</h3>
           <p>Try adjusting your search or filters</p>
+          <button className="add-first-btn" onClick={() => setShowCreateModal(true)}>
+            Add Your First Customer
+          </button>
         </div>
       ) : (
         <div className="customers-grid">
@@ -216,6 +240,20 @@ export function CustomerList() {
           ))}
         </div>
       )}
+
+      {/* Create Customer Modal */}
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Add New Customer"
+        size="medium"
+      >
+        <CustomerForm
+          onSubmit={handleCreateCustomer}
+          onCancel={() => setShowCreateModal(false)}
+          loading={mutationLoading}
+        />
+      </Modal>
     </div>
   );
 }
