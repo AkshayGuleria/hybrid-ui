@@ -10,7 +10,7 @@ This directory contains feature specifications and tracks project progress for t
 |---------|--------|----------|----------|----------|
 | [routing](./routing/) | **done** | high | niko, yap, billman | 100% |
 | [api-layer](./api-layer/) | **done** | high | yap, billman | 100% |
-| [crm-crud](./crm-crud/) | planned | medium | yap | 0% |
+| [crm-crud](./crm-crud/) | **done** | medium | yap | 100% |
 
 ## How It Works
 

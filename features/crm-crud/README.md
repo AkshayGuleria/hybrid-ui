@@ -1,7 +1,7 @@
 ---
 id: crm-crud
 title: Customer CRUD Operations
-status: planned
+status: done
 priority: medium
 assignee: yap
 created: 2026-01-07
@@ -39,30 +39,30 @@ Add complete CRUD operations for customers in the CRM app:
 
 ## Acceptance Criteria
 
-- [ ] "Add Customer" button on CustomerList creates new customer
-- [ ] New customer form with validation (name, email required)
-- [ ] "Edit" button on CustomerDetail opens edit form
-- [ ] Edit form pre-populated with existing customer data
-- [ ] "Delete" button with confirmation dialog
-- [ ] Success/error feedback for all operations
-- [ ] List refreshes after create/update/delete
-- [ ] Form validation prevents invalid submissions
-- [ ] Loading states during mutations
+- [x] "Add Customer" button on CustomerList creates new customer
+- [x] New customer form with validation (name, email required)
+- [x] "Edit" button on CustomerDetail opens edit form
+- [x] Edit form pre-populated with existing customer data
+- [x] "Delete" button with confirmation dialog
+- [x] Success/error feedback for all operations
+- [x] List refreshes after create/update/delete
+- [x] Form validation prevents invalid submissions
+- [x] Loading states during mutations
 
 ## Subtasks
 
 | ID | Task | Status | Assignee | Notes |
 |----|------|--------|----------|-------|
-| 1 | Create CustomerForm component | planned | yap | Reusable for create/edit |
-| 2 | Add "Add Customer" button to CustomerList | planned | yap | Opens form modal or page |
-| 3 | Implement create customer flow | planned | yap | Use useCustomerMutations |
-| 4 | Wire up "Edit" button in CustomerDetail | planned | yap | Opens form with data |
-| 5 | Implement update customer flow | planned | yap | Use useCustomerMutations |
-| 6 | Add DeleteConfirmation component | planned | yap | Reusable confirmation dialog |
-| 7 | Wire up "Delete" button in CustomerDetail | planned | yap | With confirmation |
-| 8 | Implement delete customer flow | planned | yap | Navigate back after delete |
-| 9 | Add form validation | planned | yap | Required fields, email format |
-| 10 | Add success/error toast notifications | planned | yap | User feedback |
+| 1 | Create CustomerForm component | done | yap | Reusable for create/edit |
+| 2 | Add "Add Customer" button to CustomerList | done | yap | Opens form modal or page |
+| 3 | Implement create customer flow | done | yap | Use useCustomerMutations |
+| 4 | Wire up "Edit" button in CustomerDetail | done | yap | Opens form with data |
+| 5 | Implement update customer flow | done | yap | Use useCustomerMutations |
+| 6 | Add DeleteConfirmation component | done | yap | Reusable confirmation dialog |
+| 7 | Wire up "Delete" button in CustomerDetail | done | yap | With confirmation |
+| 8 | Implement delete customer flow | done | yap | Navigate back after delete |
+| 9 | Add form validation | done | yap | Required fields, email format |
+| 10 | Add success/error toast notifications | done | yap | User feedback |
 
 ## Technical Notes
 
@@ -157,6 +157,10 @@ Recommendation: Start with modal for simplicity, can add routes later if needed.
 ## Progress Log
 
 ### 2026-01-07
+- **Feature DONE** - All CRUD operations implemented and verified
+- Created CustomerForm, Modal, Toast, ConfirmDialog components
+- Implemented create, update, delete flows with validation
+- Added toast notifications for success/error feedback
 - Initial spec created by tapsa
 - Assigned to yap (CRM domain)
 - Depends on api-layer (now complete)
