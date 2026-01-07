@@ -1,5 +1,6 @@
 /**
- * Mock invoice and revenue data for Revenue Management app
+ * Mock invoice and revenue data for Revenue Management
+ * Centralized in shared package for API layer
  */
 
 export const mockInvoices = [
@@ -130,99 +131,3 @@ export const mockInvoices = [
     ]
   }
 ];
-
-/**
- * Calculate revenue metrics
- */
-export function calculateRevenueMetrics(invoices = mockInvoices) {
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-
-  // Filter invoices for current month
-  const currentMonthInvoices = invoices.filter(inv => {
-    const issueDate = new Date(inv.issueDate);
-    return issueDate.getMonth() === currentMonth &&
-           issueDate.getFullYear() === currentYear;
-  });
-
-  // Filter for previous month
-  const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-  const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-  const previousMonthInvoices = invoices.filter(inv => {
-    const issueDate = new Date(inv.issueDate);
-    return issueDate.getMonth() === previousMonth &&
-           issueDate.getFullYear() === previousYear;
-  });
-
-  // Calculate totals
-  const currentMonthRevenue = currentMonthInvoices
-    .filter(inv => inv.status === 'paid')
-    .reduce((sum, inv) => sum + inv.amount, 0);
-
-  const previousMonthRevenue = previousMonthInvoices
-    .filter(inv => inv.status === 'paid')
-    .reduce((sum, inv) => sum + inv.amount, 0);
-
-  const totalOutstanding = invoices
-    .filter(inv => inv.status === 'sent' || inv.status === 'overdue')
-    .reduce((sum, inv) => sum + inv.amount, 0);
-
-  const overdueAmount = invoices
-    .filter(inv => inv.status === 'overdue')
-    .reduce((sum, inv) => sum + inv.amount, 0);
-
-  // Calculate growth
-  const growth = previousMonthRevenue > 0
-    ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100
-    : 0;
-
-  return {
-    currentMonthRevenue,
-    previousMonthRevenue,
-    totalOutstanding,
-    overdueAmount,
-    growth,
-    totalInvoices: invoices.length,
-    paidInvoices: invoices.filter(inv => inv.status === 'paid').length,
-    pendingInvoices: invoices.filter(inv => inv.status === 'sent').length,
-    overdueInvoices: invoices.filter(inv => inv.status === 'overdue').length
-  };
-}
-
-/**
- * Get invoice by ID
- */
-export function getInvoiceById(id) {
-  return mockInvoices.find(invoice => invoice.id === id);
-}
-
-/**
- * Filter invoices by status
- */
-export function filterInvoicesByStatus(status) {
-  return mockInvoices.filter(invoice => invoice.status === status);
-}
-
-/**
- * Get revenue by month (for charts)
- */
-export function getMonthlyRevenue() {
-  const monthlyData = {};
-
-  mockInvoices.forEach(invoice => {
-    if (invoice.status === 'paid') {
-      const date = new Date(invoice.issueDate);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-
-      if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = 0;
-      }
-      monthlyData[monthKey] += invoice.amount;
-    }
-  });
-
-  return Object.entries(monthlyData)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, revenue]) => ({ month, revenue }));
-}

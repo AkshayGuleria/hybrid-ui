@@ -1,24 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockInvoices } from '../data/mockInvoices';
+import { useInvoices } from '@hybrid-ui/shared';
 import './InvoiceList.css';
 
 /**
  * InvoiceList Component
  * Displays all invoices with filtering and status
+ * Now uses shared API layer with loading/error states
  */
 export function InvoiceList() {
   const navigate = useNavigate();
-  const [invoices, setInvoices] = useState(mockInvoices);
+  const { invoices, loading, error, refetch, filterByStatus } = useInvoices();
   const [statusFilter, setStatusFilter] = useState('all');
+  const [allInvoices, setAllInvoices] = useState([]);
 
-  const handleStatusFilter = (status) => {
-    setStatusFilter(status);
-    if (status === 'all') {
-      setInvoices(mockInvoices);
-    } else {
-      setInvoices(mockInvoices.filter(inv => inv.status === status));
+  // Store all invoices for count display
+  useEffect(() => {
+    if (invoices.length > 0 && statusFilter === 'all') {
+      setAllInvoices(invoices);
     }
+  }, [invoices, statusFilter]);
+
+  const handleStatusFilter = async (status) => {
+    setStatusFilter(status);
+    await filterByStatus(status);
   };
 
   const getStatusBadgeClass = (status) => {
@@ -58,6 +63,34 @@ export function InvoiceList() {
     return new Date(invoice.dueDate) < new Date();
   };
 
+  // Show loading state
+  if (loading && invoices.length === 0) {
+    return (
+      <div className="invoice-list">
+        <div className="loading-state">
+          <div className="loading-spinner">Loading invoices...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="invoice-list">
+        <div className="error-state">
+          <div className="error-icon">⚠️</div>
+          <h3>Error loading invoices</h3>
+          <p>{error}</p>
+          <button onClick={refetch} className="retry-button">Try Again</button>
+        </div>
+      </div>
+    );
+  }
+
+  // Use allInvoices for counts, fallback to invoices if not yet loaded
+  const countSource = allInvoices.length > 0 ? allInvoices : invoices;
+
   return (
     <div className="invoice-list">
       <div className="list-header">
@@ -76,28 +109,34 @@ export function InvoiceList() {
             className={statusFilter === 'all' ? 'filter-btn active' : 'filter-btn'}
             onClick={() => handleStatusFilter('all')}
           >
-            All ({mockInvoices.length})
+            All ({countSource.length})
           </button>
           <button
             className={statusFilter === 'paid' ? 'filter-btn active' : 'filter-btn'}
             onClick={() => handleStatusFilter('paid')}
           >
-            Paid ({mockInvoices.filter(i => i.status === 'paid').length})
+            Paid ({countSource.filter(i => i.status === 'paid').length})
           </button>
           <button
             className={statusFilter === 'sent' ? 'filter-btn active' : 'filter-btn'}
             onClick={() => handleStatusFilter('sent')}
           >
-            Pending ({mockInvoices.filter(i => i.status === 'sent').length})
+            Pending ({countSource.filter(i => i.status === 'sent').length})
           </button>
           <button
             className={statusFilter === 'overdue' ? 'filter-btn active' : 'filter-btn'}
             onClick={() => handleStatusFilter('overdue')}
           >
-            Overdue ({mockInvoices.filter(i => i.status === 'overdue').length})
+            Overdue ({countSource.filter(i => i.status === 'overdue').length})
           </button>
         </div>
       </div>
+
+      {loading && (
+        <div className="loading-overlay">
+          <span>Loading...</span>
+        </div>
+      )}
 
       <div className="invoices-table-container">
         <table className="invoices-table">

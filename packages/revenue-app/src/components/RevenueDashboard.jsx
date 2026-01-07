@@ -1,13 +1,14 @@
 import React from 'react';
-import { calculateRevenueMetrics } from '../data/mockInvoices';
+import { useRevenueMetrics } from '@hybrid-ui/shared';
 import './RevenueDashboard.css';
 
 /**
  * RevenueDashboard Component
  * Displays key revenue metrics and financial overview
+ * Now uses shared API layer with loading/error states
  */
 export function RevenueDashboard() {
-  const metrics = calculateRevenueMetrics();
+  const { metrics, loading, error, refetch } = useRevenueMetrics();
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -22,6 +23,55 @@ export function RevenueDashboard() {
     const sign = value >= 0 ? '+' : '';
     return `${sign}${value.toFixed(1)}%`;
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="revenue-dashboard">
+        <div className="dashboard-header">
+          <h1>Revenue Dashboard</h1>
+          <p className="subtitle">Track your financial performance and metrics</p>
+        </div>
+        <div className="loading-state">
+          <div className="loading-spinner">Loading metrics...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="revenue-dashboard">
+        <div className="dashboard-header">
+          <h1>Revenue Dashboard</h1>
+          <p className="subtitle">Track your financial performance and metrics</p>
+        </div>
+        <div className="error-state">
+          <div className="error-icon">⚠️</div>
+          <h3>Error loading metrics</h3>
+          <p>{error}</p>
+          <button onClick={refetch} className="retry-button">Try Again</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!metrics) {
+    return (
+      <div className="revenue-dashboard">
+        <div className="dashboard-header">
+          <h1>Revenue Dashboard</h1>
+          <p className="subtitle">Track your financial performance and metrics</p>
+        </div>
+        <div className="empty-state">
+          <div className="empty-icon">📊</div>
+          <h3>No metrics available</h3>
+          <p>Revenue data is not available at this time.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="revenue-dashboard">

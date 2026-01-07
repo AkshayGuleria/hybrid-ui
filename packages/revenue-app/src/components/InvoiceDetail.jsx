@@ -1,16 +1,17 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getInvoiceById } from '../data/mockInvoices';
+import { useInvoice } from '@hybrid-ui/shared';
 import './InvoiceDetail.css';
 
 /**
  * InvoiceDetail Component
  * Displays detailed information about a single invoice
+ * Now uses shared API layer with loading/error states
  */
 export function InvoiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const invoice = getInvoiceById(id);
+  const { invoice, loading, error, refetch } = useInvoice(id);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -44,6 +45,41 @@ export function InvoiceDetail() {
         return 'status-badge';
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="invoice-detail">
+        <div className="detail-header">
+          <button className="back-button" onClick={() => navigate('/invoices')}>
+            ← Back to Invoices
+          </button>
+        </div>
+        <div className="loading-state">
+          <div className="loading-spinner">Loading invoice...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="invoice-detail">
+        <div className="detail-header">
+          <button className="back-button" onClick={() => navigate('/invoices')}>
+            ← Back to Invoices
+          </button>
+        </div>
+        <div className="error-state">
+          <div className="error-icon">⚠️</div>
+          <h3>Error loading invoice</h3>
+          <p>{error}</p>
+          <button onClick={refetch} className="retry-button">Try Again</button>
+        </div>
+      </div>
+    );
+  }
 
   if (!invoice) {
     return (

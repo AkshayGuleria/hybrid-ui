@@ -1,16 +1,17 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getCustomerById } from '../data/mockCustomers';
+import { useCustomer } from '@hybrid-ui/shared';
 import './CustomerDetail.css';
 
 /**
  * CustomerDetail Component
  * Displays detailed information about a single customer
+ * Now uses shared API layer with loading/error states
  */
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const customer = getCustomerById(Number(id));
+  const { customer, loading, error, refetch } = useCustomer(id);
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-US', {
@@ -41,6 +42,41 @@ export function CustomerDetail() {
         return 'status-badge';
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="customer-detail">
+        <div className="detail-header">
+          <button className="back-button" onClick={() => navigate('/customers')}>
+            ← Back to Customers
+          </button>
+        </div>
+        <div className="loading-state">
+          <div className="loading-spinner">Loading customer...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="customer-detail">
+        <div className="detail-header">
+          <button className="back-button" onClick={() => navigate('/customers')}>
+            ← Back to Customers
+          </button>
+        </div>
+        <div className="error-state">
+          <div className="error-icon">⚠️</div>
+          <h3>Error loading customer</h3>
+          <p>{error}</p>
+          <button onClick={refetch} className="retry-button">Try Again</button>
+        </div>
+      </div>
+    );
+  }
 
   if (!customer) {
     return (

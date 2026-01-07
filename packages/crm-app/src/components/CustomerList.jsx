@@ -1,49 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockCustomers, searchCustomers } from '../data/mockCustomers';
+import { useCustomers } from '@hybrid-ui/shared';
 import './CustomerList.css';
 
 /**
  * CustomerList Component
  * Displays all customers with search and filter capabilities
+ * Now uses shared API layer with loading/error states
  */
 export function CustomerList() {
   const navigate = useNavigate();
-  const [customers, setCustomers] = useState(mockCustomers);
+  const { customers, loading, error, refetch, searchCustomers, filterByStatus } = useCustomers();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [allCustomers, setAllCustomers] = useState([]);
 
-  const handleSearch = (e) => {
+  // Store all customers for count display
+  useEffect(() => {
+    if (customers.length > 0 && statusFilter === 'all' && searchQuery === '') {
+      setAllCustomers(customers);
+    }
+  }, [customers, statusFilter, searchQuery]);
+
+  const handleSearch = async (e) => {
     const query = e.target.value;
     setSearchQuery(query);
-
-    if (query.trim() === '') {
-      applyFilters('', statusFilter);
-    } else {
-      const results = searchCustomers(query);
-      setCustomers(results);
-    }
+    setStatusFilter('all');
+    await searchCustomers(query);
   };
 
-  const handleStatusFilter = (status) => {
+  const handleStatusFilter = async (status) => {
     setStatusFilter(status);
-    applyFilters(searchQuery, status);
-  };
-
-  const applyFilters = (search, status) => {
-    let filtered = mockCustomers;
-
-    // Apply search
-    if (search.trim() !== '') {
-      filtered = searchCustomers(search);
-    }
-
-    // Apply status filter
-    if (status !== 'all') {
-      filtered = filtered.filter(customer => customer.status === status);
-    }
-
-    setCustomers(filtered);
+    setSearchQuery('');
+    await filterByStatus(status);
   };
 
   const getStatusBadgeClass = (status) => {
@@ -75,6 +64,34 @@ export function CustomerList() {
     });
   };
 
+  // Show loading state
+  if (loading && customers.length === 0) {
+    return (
+      <div className="customer-list">
+        <div className="loading-state">
+          <div className="loading-spinner">Loading customers...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="customer-list">
+        <div className="error-state">
+          <div className="error-icon">⚠️</div>
+          <h3>Error loading customers</h3>
+          <p>{error}</p>
+          <button onClick={refetch} className="retry-button">Try Again</button>
+        </div>
+      </div>
+    );
+  }
+
+  // Use allCustomers for counts, fallback to customers if not yet loaded
+  const countSource = allCustomers.length > 0 ? allCustomers : customers;
+
   return (
     <div className="customer-list">
       <div className="list-header">
@@ -101,28 +118,34 @@ export function CustomerList() {
             className={statusFilter === 'all' ? 'filter-btn active' : 'filter-btn'}
             onClick={() => handleStatusFilter('all')}
           >
-            All ({mockCustomers.length})
+            All ({countSource.length})
           </button>
           <button
             className={statusFilter === 'active' ? 'filter-btn active' : 'filter-btn'}
             onClick={() => handleStatusFilter('active')}
           >
-            Active ({mockCustomers.filter(c => c.status === 'active').length})
+            Active ({countSource.filter(c => c.status === 'active').length})
           </button>
           <button
             className={statusFilter === 'lead' ? 'filter-btn active' : 'filter-btn'}
             onClick={() => handleStatusFilter('lead')}
           >
-            Leads ({mockCustomers.filter(c => c.status === 'lead').length})
+            Leads ({countSource.filter(c => c.status === 'lead').length})
           </button>
           <button
             className={statusFilter === 'inactive' ? 'filter-btn active' : 'filter-btn'}
             onClick={() => handleStatusFilter('inactive')}
           >
-            Inactive ({mockCustomers.filter(c => c.status === 'inactive').length})
+            Inactive ({countSource.filter(c => c.status === 'inactive').length})
           </button>
         </div>
       </div>
+
+      {loading && (
+        <div className="loading-overlay">
+          <span>Loading...</span>
+        </div>
+      )}
 
       {customers.length === 0 ? (
         <div className="empty-state">

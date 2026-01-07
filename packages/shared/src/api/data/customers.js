@@ -1,5 +1,6 @@
 /**
- * Mock customer data for CRM app
+ * Mock customer data for CRM
+ * Centralized in shared package for API layer
  */
 
 export const mockCustomers = [
@@ -134,30 +135,3 @@ export const mockCustomers = [
     tags: ['creative', 'lead']
   }
 ];
-
-/**
- * Get customer by ID
- */
-export function getCustomerById(id) {
-  return mockCustomers.find(customer => customer.id === id);
-}
-
-/**
- * Filter customers by status
- */
-export function filterCustomersByStatus(status) {
-  return mockCustomers.filter(customer => customer.status === status);
-}
-
-/**
- * Search customers by name or email
- */
-export function searchCustomers(query) {
-  const lowerQuery = query.toLowerCase();
-  return mockCustomers.filter(
-    customer =>
-      customer.name.toLowerCase().includes(lowerQuery) ||
-      customer.email.toLowerCase().includes(lowerQuery) ||
-      customer.contactPerson.toLowerCase().includes(lowerQuery)
-  );
-}

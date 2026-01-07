@@ -1,11 +1,11 @@
 ---
 id: api-layer
 title: Shared API Abstraction Layer
-status: planned
+status: review
 priority: high
-assignee: null
+assignee: yap, billman
 created: 2025-01-07
-updated: 2025-01-07
+updated: 2026-01-07
 dependencies: []
 blocks: [crm-crud, invoice-management]
 ---
@@ -14,11 +14,11 @@ blocks: [crm-crud, invoice-management]
 
 ## Problem Statement
 
-Currently, each app has mock data hardcoded in component files:
-- `packages/crm-app/src/data/mockCustomers.js`
-- `packages/revenue-app/src/data/mockInvoices.js`
+Previously, each app had mock data hardcoded in component files:
+- `packages/crm-app/src/data/mockCustomers.js` (now removed)
+- `packages/revenue-app/src/data/mockInvoices.js` (now removed)
 
-This creates several issues:
+This created several issues:
 1. **No data fetching abstraction** - Components directly import mock data
 2. **No loading/error states** - Data appears instantly, unrealistic
 3. **Duplicate patterns** - Each app reinvents data handling
@@ -67,32 +67,32 @@ function CustomerList() {
 
 ## Acceptance Criteria
 
-- [ ] API client base module created with fetch wrapper
-- [ ] Customer API module with getAll, getById, create, update, delete
-- [ ] Invoice API module with getAll, getById, create, update, delete
-- [ ] useCustomers hook with loading/error states
-- [ ] useInvoices hook with loading/error states
-- [ ] CRM app migrated to use new API layer
-- [ ] Revenue app migrated to use new API layer
-- [ ] Mock data moved into API layer (out of apps)
-- [ ] Simulated network delay for realistic UX
-- [ ] Error simulation capability for testing
+- [x] API client base module created with fetch wrapper
+- [x] Customer API module with getAll, getById, create, update, delete
+- [x] Invoice API module with getAll, getById, create, update, delete
+- [x] useCustomers hook with loading/error states
+- [x] useInvoices hook with loading/error states
+- [x] CRM app migrated to use new API layer
+- [x] Revenue app migrated to use new API layer
+- [x] Mock data moved into API layer (out of apps)
+- [x] Simulated network delay for realistic UX
+- [x] Error simulation capability for testing
 
 ## Subtasks
 
 | ID | Task | Status | Assignee | Notes |
 |----|------|--------|----------|-------|
-| 1 | Create api/client.js base module | planned | | Fetch wrapper with error handling |
-| 2 | Create api/customers.js | planned | yap | CRUD operations |
-| 3 | Create api/invoices.js | planned | billman | CRUD operations |
-| 4 | Move mockCustomers into API layer | planned | yap | Remove from crm-app |
-| 5 | Move mockInvoices into API layer | planned | billman | Remove from revenue-app |
-| 6 | Create useCustomers hook | planned | yap | Loading/error/data states |
-| 7 | Create useInvoices hook | planned | billman | Loading/error/data states |
-| 8 | Migrate CRM CustomerList to use hook | planned | yap | Replace direct import |
-| 9 | Migrate Revenue components to use hook | planned | billman | Dashboard + InvoiceList |
-| 10 | Add simulated network delay | planned | | 200-500ms realistic delay |
-| 11 | Export all from shared package index | planned | | Update packages/shared/src/index.js |
+| 1 | Create api/client.js base module | done | | Fetch wrapper with error handling |
+| 2 | Create api/customers.js | done | yap | CRUD operations |
+| 3 | Create api/invoices.js | done | billman | CRUD operations |
+| 4 | Move mockCustomers into API layer | done | yap | Remove from crm-app |
+| 5 | Move mockInvoices into API layer | done | billman | Remove from revenue-app |
+| 6 | Create useCustomers hook | done | yap | Loading/error/data states |
+| 7 | Create useInvoices hook | done | billman | Loading/error/data states |
+| 8 | Migrate CRM CustomerList to use hook | done | yap | Replace direct import |
+| 9 | Migrate Revenue components to use hook | done | billman | Dashboard + InvoiceList |
+| 10 | Add simulated network delay | done | | 200-500ms realistic delay |
+| 11 | Export all from shared package index | done | | Update packages/shared/src/index.js |
 
 ## Technical Notes
 
@@ -256,6 +256,16 @@ For a production app, consider using React Query or SWR instead of custom hooks:
 Decision: Start with custom hooks (simpler), migrate to React Query if needed.
 
 ## Progress Log
+
+### 2026-01-07
+- All subtasks completed - feature ready for review
+- Created shared API layer with full CRUD operations
+- Migrated CRM components (CustomerList, CustomerDetail) to use useCustomers hook
+- Migrated Revenue components (InvoiceList, InvoiceDetail, RevenueDashboard) to use useInvoices hook
+- Removed old mock data files from individual apps
+- Added loading/error states to all data-fetching components
+- Feature moved to in-progress
+- Assigned to yap (customers) and billman (invoices)
 
 ### 2025-01-07
 - Initial spec created by tapsa
