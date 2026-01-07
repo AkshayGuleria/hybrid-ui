@@ -8,7 +8,7 @@ This directory contains feature specifications and tracks project progress for t
 
 | Feature | Status | Priority | Assignee | Progress |
 |---------|--------|----------|----------|----------|
-| [routing](./routing/) | **review** | high | niko, yap, billman | 100% |
+| [routing](./routing/) | **done** | high | niko, yap, billman | 100% |
 | [api-layer](./api-layer/) | planned | high | yap, billman | 0% |
 
 ## How It Works

@@ -1,7 +1,7 @@
 ---
 id: routing
 title: Add Client-Side Routing
-status: review
+status: done
 priority: high
 assignee: niko, yap, billman
 created: 2025-01-07
@@ -141,13 +141,14 @@ export function ProtectedRoute({ children }) {
 ## Progress Log
 
 ### 2026-01-07
+- **Feature DONE** - Verified and marked complete
 - **Implementation complete** - All subtasks done, moved to review
 - **niko**: Created ProtectedRoute and NotFound components in shared package
 - **yap**: Installed react-router-dom, created route structure, CustomerDetail component
 - **billman**: Installed react-router-dom, created route structure, InvoiceDetail component
 - Added clickable navigation from list views to detail views
 - All 10 acceptance criteria met
-- Feature moved to in-progress
+- Committed and pushed to origin/master (08553b0)
 - Assigned to niko (shared auth), yap (CRM), billman (Revenue)
 
 ### 2025-01-07
