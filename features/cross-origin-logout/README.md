@@ -1,13 +1,16 @@
 ---
 id: cross-origin-logout
 title: Fix Cross-Origin Logout localStorage Clearing
-status: done
+status: in-progress
 priority: high
-assignee: niko
+assignee: niko, habibi
 created: 2026-01-07
 updated: 2026-01-08
 dependencies: []
 blocks: []
+phase: 2 of 2
+phase1_status: done
+phase2_status: planned
 ---
 
 # Fix Cross-Origin Logout localStorage Clearing
