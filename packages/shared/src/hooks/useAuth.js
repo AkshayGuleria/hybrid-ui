@@ -58,7 +58,8 @@ export function useAuth() {
       const params = new URLSearchParams(window.location.search);
       if (params.get('logout') === 'true') {
         clearSession();
-        window.history.replaceState({}, '', window.location.pathname);
+        // Don't clear URL here - let the app handle cascade logic first
+        // URL will be cleaned up after cascade completes
         setLoading(false);
         return;
       }
@@ -128,13 +129,13 @@ export function useAuth() {
   /**
    * Check if logout was requested via URL parameter
    * Returns true if logout was requested
+   * Note: Does NOT clear URL - caller should handle URL cleanup after cascade
    */
   const checkLogoutFromURL = () => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('logout') === 'true') {
       clearSession();
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
+      // Don't clear URL here - let cascade logic handle it
       return true;
     }
     return false;
