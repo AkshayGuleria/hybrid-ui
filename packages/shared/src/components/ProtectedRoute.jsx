@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../hooks/useAuth.js';
+import { useAuth, APP_CONFIG } from '../hooks/useAuth.js';
 
 /**
  * ProtectedRoute Component
@@ -7,20 +7,40 @@ import { useAuth } from '../hooks/useAuth.js';
  *
  * Handles:
  * - Checking for session data in URL params (cross-origin auth)
+ * - Handling logout cascade (cross-origin logout)
  * - Redirecting to frontdoor if not authenticated
  * - Showing loading state during auth check
  */
-export function ProtectedRoute({ children }) {
+export function ProtectedRoute({ children, appName = 'unknown' }) {
   const {
     isAuthenticated,
     loading,
-    initSessionFromURL
+    logout,
+    initSessionFromURL,
+    buildLogoutUrl,
+    getLogoutFromParam
   } = useAuth();
 
   const [authChecked, setAuthChecked] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shouldLogout = params.get('logout') === 'true';
+
+    if (shouldLogout) {
+      // Handle logout cascade - clear this app's localStorage
+      setIsLoggingOut(true);
+      logout();
+
+      // Get existing "from" param and add this app
+      const existingFrom = getLogoutFromParam();
+      const redirectUrl = buildLogoutUrl(appName, existingFrom);
+      window.location.href = redirectUrl;
+      return;
+    }
+
     // Check for session data in URL params (from frontdoor redirect)
     // This handles cross-origin auth transfer on any route
     initSessionFromURL();
@@ -36,6 +56,22 @@ export function ProtectedRoute({ children }) {
       window.location.href = `http://localhost:5173/?returnTo=${returnUrl}`;
     }
   }, [authChecked, loading, isAuthenticated, isRedirecting]);
+
+  // Show logging out state during cascade
+  if (isLoggingOut) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        gap: '1rem'
+      }}>
+        <div style={{ fontSize: '2rem' }}>Logging out...</div>
+      </div>
+    );
+  }
 
   // Show loading spinner while checking auth
   if (loading || !authChecked) {

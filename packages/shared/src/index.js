@@ -1,5 +1,5 @@
 // Auth
-export { useAuth } from './hooks/useAuth.js';
+export { useAuth, APP_CONFIG, LOGOUT_APPS } from './hooks/useAuth.js';
 
 // Components
 export { TopNavigation } from './components/TopNavigation.jsx';

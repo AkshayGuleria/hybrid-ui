@@ -4,6 +4,16 @@ import { useState, useEffect } from 'react';
 const SESSION_TOKEN_KEY = 'sessionToken';
 const USER_KEY = 'user';
 
+// App configuration for cross-origin logout cascade
+export const APP_CONFIG = {
+  frontdoor: { url: 'http://localhost:5173', name: 'frontdoor' },
+  crm: { url: 'http://localhost:5174', name: 'crm' },
+  revenue: { url: 'http://localhost:5175', name: 'revenue' }
+};
+
+// List of apps that need logout (excludes frontdoor - it's the orchestrator)
+export const LOGOUT_APPS = ['crm', 'revenue'];
+
 /**
  * Generate a unique session token
  * Uses crypto.randomUUID if available, falls back to custom implementation
@@ -201,6 +211,56 @@ export function useAuth() {
     return baseUrl;
   };
 
+  /**
+   * Build logout URL with "from" parameter for cascade tracking
+   * @param {string} currentApp - The app initiating or continuing the logout
+   * @param {string} existingFrom - Existing "from" parameter value (if any)
+   * @returns {string} - URL to redirect to for logout cascade
+   */
+  const buildLogoutUrl = (currentApp, existingFrom = '') => {
+    const newFrom = existingFrom ? `${existingFrom}|${currentApp}` : currentApp;
+    return `${APP_CONFIG.frontdoor.url}/?logout=true&from=${encodeURIComponent(newFrom)}`;
+  };
+
+  /**
+   * Get the "from" parameter from current URL (for logout cascade)
+   * @returns {string} - The "from" parameter value or empty string
+   */
+  const getLogoutFromParam = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('from') || '';
+  };
+
+  /**
+   * Parse the "from" parameter into an array of visited apps
+   * @param {string} fromParam - The "from" parameter value
+   * @returns {string[]} - Array of app names that have been visited
+   */
+  const parseVisitedApps = (fromParam) => {
+    if (!fromParam) return [];
+    return fromParam.split('|').filter(Boolean);
+  };
+
+  /**
+   * Check if all apps have been visited in the logout cascade
+   * @param {string} fromParam - The "from" parameter value
+   * @returns {boolean} - True if all apps have cleared their localStorage
+   */
+  const isLogoutCascadeComplete = (fromParam) => {
+    const visited = parseVisitedApps(fromParam);
+    return LOGOUT_APPS.every(app => visited.includes(app));
+  };
+
+  /**
+   * Get the next app to visit in the logout cascade
+   * @param {string} fromParam - The "from" parameter value
+   * @returns {string|null} - Next app name or null if cascade complete
+   */
+  const getNextLogoutApp = (fromParam) => {
+    const visited = parseVisitedApps(fromParam);
+    return LOGOUT_APPS.find(app => !visited.includes(app)) || null;
+  };
+
   return {
     user,
     sessionToken,
@@ -213,6 +273,11 @@ export function useAuth() {
     checkLogoutFromURL,
     getSessionParams,
     buildAuthUrl,
+    buildLogoutUrl,
+    getLogoutFromParam,
+    parseVisitedApps,
+    isLogoutCascadeComplete,
+    getNextLogoutApp,
     isAuthenticated: !!(user && sessionToken)
   };
 }

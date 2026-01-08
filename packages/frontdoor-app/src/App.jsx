@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { useAuth } from '@hybrid-ui/shared';
+import React, { useEffect, useState } from 'react';
+import { useAuth, APP_CONFIG } from '@hybrid-ui/shared';
 import { TopNavigation } from '@hybrid-ui/shared';
 import { Login } from './components/Login';
 import './App.css';
@@ -12,6 +12,11 @@ import './App.css';
  * 1. User logs in -> generates sessionToken + user data
  * 2. Navigation to other apps -> passes sessionToken + user via URL
  * 3. Logout -> clears session, other apps redirect here with ?logout=true
+ *
+ * Cross-Origin Logout Cascade:
+ * Frontdoor orchestrates the logout cascade using the "from" parameter.
+ * Flow: App logout → Frontdoor → Next App → Frontdoor → ... → Complete
+ * The "from" param tracks which apps have cleared their localStorage.
  */
 function App() {
   const {
@@ -21,15 +26,51 @@ function App() {
     login,
     logout,
     isAuthenticated,
-    buildAuthUrl
+    buildAuthUrl,
+    isLogoutCascadeComplete,
+    getNextLogoutApp
   } = useAuth();
 
-  // Note: logout parameter (?logout=true) is now handled automatically
-  // in useAuth's checkSession() before reading localStorage
+  // Track if we're in the middle of a logout cascade
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Handle logout cascade orchestration
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shouldLogout = params.get('logout') === 'true';
+    const fromParam = params.get('from') || '';
+
+    if (shouldLogout) {
+      setIsLoggingOut(true);
+
+      // Clear frontdoor localStorage
+      logout();
+
+      // Check if cascade is complete
+      if (isLogoutCascadeComplete(fromParam)) {
+        // All apps have logged out - stay on login page
+        window.history.replaceState({}, '', '/');
+        setIsLoggingOut(false);
+      } else {
+        // Find next app to logout
+        const nextApp = getNextLogoutApp(fromParam);
+        if (nextApp) {
+          // Add frontdoor to the "from" chain and redirect to next app
+          const newFrom = fromParam ? `${fromParam}|frontdoor` : 'frontdoor';
+          const nextUrl = `${APP_CONFIG[nextApp].url}/?logout=true&from=${encodeURIComponent(newFrom)}`;
+          window.location.href = nextUrl;
+        } else {
+          // Fallback: no next app found, complete
+          window.history.replaceState({}, '', '/');
+          setIsLoggingOut(false);
+        }
+      }
+    }
+  }, [logout, isLogoutCascadeComplete, getNextLogoutApp]);
 
   // Handle returnTo when already authenticated
   useEffect(() => {
-    if (isAuthenticated && !loading) {
+    if (isAuthenticated && !loading && !isLoggingOut) {
       const params = new URLSearchParams(window.location.search);
       const returnTo = params.get('returnTo');
 
@@ -38,7 +79,7 @@ function App() {
         window.location.href = buildAuthUrl(returnTo);
       }
     }
-  }, [isAuthenticated, loading, buildAuthUrl]);
+  }, [isAuthenticated, loading, buildAuthUrl, isLoggingOut]);
 
   const handleLogin = async (username, password) => {
     const result = await login(username, password);
@@ -66,6 +107,16 @@ function App() {
     { label: 'CRM', href: buildAuthUrl('http://localhost:5174'), icon: '📊' },
     { label: 'Revenue', href: buildAuthUrl('http://localhost:5175'), icon: '💰' }
   ];
+
+  // Show logging out state during cascade
+  if (isLoggingOut) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner">🔄</div>
+        <p>Logging out...</p>
+      </div>
+    );
+  }
 
   // Show loading state while checking session
   if (loading && !user) {

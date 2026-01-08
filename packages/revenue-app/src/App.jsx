@@ -16,15 +16,19 @@ import './App.css';
  * - /invoices → Invoice list
  * - /invoices/:id → Invoice detail view
  * - * → 404 Not Found
+ *
+ * Cross-Origin Logout:
+ * Logout initiates cascade: Revenue → Frontdoor → CRM → Frontdoor (complete)
  */
 function AppContent() {
-  const { user, logout, buildAuthUrl } = useAuth();
+  const { user, logout, buildAuthUrl, buildLogoutUrl } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
-    window.location.href = 'http://localhost:5173/?logout=true';
+    // Start logout cascade with "from=revenue"
+    window.location.href = buildLogoutUrl('revenue');
   };
 
   // App links for navigation (with session data for cross-origin auth)
@@ -80,7 +84,7 @@ function App() {
         <Route
           path="/*"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute appName="revenue">
               <AppContent />
             </ProtectedRoute>
           }
