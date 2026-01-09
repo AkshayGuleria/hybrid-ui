@@ -22,8 +22,8 @@ import './App.css';
 function AppContent() {
   const { user, logout, buildAuthUrl, buildLogoutUrl } = useAuth();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout(); // Wait for server logout to complete
     // Start logout cascade with "from=crm"
     window.location.href = buildLogoutUrl('crm');
   };

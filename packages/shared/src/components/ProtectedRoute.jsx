@@ -36,12 +36,16 @@ export function ProtectedRoute({ children, appName = 'unknown' }) {
     if (shouldLogout) {
       // Handle logout cascade - clear this app's localStorage
       setIsLoggingOut(true);
-      logout();
 
-      // Get existing "from" param and add this app
-      const existingFrom = getLogoutFromParam();
-      const redirectUrl = buildLogoutUrl(appName, existingFrom);
-      window.location.href = redirectUrl;
+      // Async IIFE to await logout before redirecting
+      (async () => {
+        await logout(); // Wait for server logout to complete
+
+        // Get existing "from" param and add this app
+        const existingFrom = getLogoutFromParam();
+        const redirectUrl = buildLogoutUrl(appName, existingFrom);
+        window.location.href = redirectUrl;
+      })();
       return;
     }
 

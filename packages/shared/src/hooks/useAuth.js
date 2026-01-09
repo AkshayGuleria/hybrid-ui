@@ -209,13 +209,17 @@ export function useAuth() {
   const logout = async () => {
     const token = sessionToken || localStorage.getItem(SESSION_TOKEN_KEY);
 
-    // Invalidate server-side (fire and forget)
+    // Invalidate server-side FIRST (await to ensure it completes)
     if (token) {
-      serverLogout(token).catch(err => {
+      try {
+        await serverLogout(token);
+        console.log('Server session invalidated successfully');
+      } catch (err) {
         console.warn('Server logout failed:', err);
-      });
+      }
     }
 
+    // Then clear local session
     clearSession();
     setError(null);
   };

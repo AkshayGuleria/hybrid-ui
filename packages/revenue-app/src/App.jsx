@@ -25,8 +25,8 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout(); // Wait for server logout to complete
     // Start logout cascade with "from=revenue"
     window.location.href = buildLogoutUrl('revenue');
   };

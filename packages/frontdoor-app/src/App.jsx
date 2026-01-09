@@ -46,28 +46,31 @@ function App() {
     if (shouldLogout) {
       setIsLoggingOut(true);
 
-      // Clear frontdoor localStorage
-      logout();
+      // Async IIFE to await logout before continuing cascade
+      (async () => {
+        // Clear frontdoor localStorage and invalidate server session
+        await logout();
 
-      // Check if cascade is complete
-      if (isLogoutCascadeComplete(fromParam)) {
-        // All apps have logged out - stay on login page
-        window.history.replaceState({}, '', '/');
-        setIsLoggingOut(false);
-      } else {
-        // Find next app to logout
-        const nextApp = getNextLogoutApp(fromParam);
-        if (nextApp) {
-          // Add frontdoor to the "from" chain and redirect to next app
-          const newFrom = fromParam ? `${fromParam}|frontdoor` : 'frontdoor';
-          const nextUrl = `${APP_CONFIG[nextApp].url}/?logout=true&from=${encodeURIComponent(newFrom)}`;
-          window.location.href = nextUrl;
-        } else {
-          // Fallback: no next app found, complete
+        // Check if cascade is complete
+        if (isLogoutCascadeComplete(fromParam)) {
+          // All apps have logged out - stay on login page
           window.history.replaceState({}, '', '/');
           setIsLoggingOut(false);
+        } else {
+          // Find next app to logout
+          const nextApp = getNextLogoutApp(fromParam);
+          if (nextApp) {
+            // Add frontdoor to the "from" chain and redirect to next app
+            const newFrom = fromParam ? `${fromParam}|frontdoor` : 'frontdoor';
+            const nextUrl = `${APP_CONFIG[nextApp].url}/?logout=true&from=${encodeURIComponent(newFrom)}`;
+            window.location.href = nextUrl;
+          } else {
+            // Fallback: no next app found, complete
+            window.history.replaceState({}, '', '/');
+            setIsLoggingOut(false);
+          }
         }
-      }
+      })();
     }
   }, [logout, isLogoutCascadeComplete, getNextLogoutApp]);
 
