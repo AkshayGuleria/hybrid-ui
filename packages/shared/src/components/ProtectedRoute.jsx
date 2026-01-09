@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth, APP_CONFIG } from '../hooks/useAuth.js';
+import { useAuth, APP_CONFIG, VALIDATION_INTERVAL_MS } from '../hooks/useAuth.js';
 
 /**
  * ProtectedRoute Component
@@ -8,6 +8,8 @@ import { useAuth, APP_CONFIG } from '../hooks/useAuth.js';
  * Handles:
  * - Checking for session data in URL params (cross-origin auth)
  * - Handling logout cascade (cross-origin logout)
+ * - Periodic session validation with server
+ * - Auto-logout on session expiry
  * - Redirecting to frontdoor if not authenticated
  * - Showing loading state during auth check
  */
@@ -18,7 +20,9 @@ export function ProtectedRoute({ children, appName = 'unknown' }) {
     logout,
     initSessionFromURL,
     buildLogoutUrl,
-    getLogoutFromParam
+    getLogoutFromParam,
+    validateSession,
+    refreshSessionIfNeeded
   } = useAuth();
 
   const [authChecked, setAuthChecked] = useState(false);
@@ -56,6 +60,31 @@ export function ProtectedRoute({ children, appName = 'unknown' }) {
       window.location.href = `http://localhost:5173/?returnTo=${returnUrl}`;
     }
   }, [authChecked, loading, isAuthenticated, isRedirecting]);
+
+  // Periodic session validation (Phase 2 - server-side sessions)
+  useEffect(() => {
+    if (!isAuthenticated || isLoggingOut) return;
+
+    const validateAndRefresh = async () => {
+      const valid = await validateSession();
+      if (!valid) {
+        // Session invalid - redirect to frontdoor with sessionExpired flag
+        const returnUrl = encodeURIComponent(window.location.href);
+        window.location.href = `http://localhost:5173/?returnTo=${returnUrl}&sessionExpired=true`;
+        return;
+      }
+      // If valid, check if refresh needed
+      await refreshSessionIfNeeded();
+    };
+
+    // Initial validation
+    validateAndRefresh();
+
+    // Set up interval for periodic validation
+    const intervalId = setInterval(validateAndRefresh, VALIDATION_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, isLoggingOut, validateSession, refreshSessionIfNeeded]);
 
   // Show logging out state during cascade
   if (isLoggingOut) {

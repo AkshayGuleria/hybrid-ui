@@ -1,5 +1,20 @@
 // Auth
-export { useAuth, APP_CONFIG, LOGOUT_APPS } from './hooks/useAuth.js';
+export {
+  useAuth,
+  APP_CONFIG,
+  LOGOUT_APPS,
+  AUTH_SERVER_URL,
+  VALIDATION_INTERVAL_MS
+} from './hooks/useAuth.js';
+
+// Auth API
+export {
+  serverLogin,
+  serverValidate,
+  serverLogout,
+  serverRefresh,
+  isAuthServerAvailable
+} from './api/auth.js';
 
 // Components
 export { TopNavigation } from './components/TopNavigation.jsx';

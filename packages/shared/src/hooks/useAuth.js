@@ -1,10 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  serverLogin,
+  serverValidate,
+  serverLogout,
+  serverRefresh,
+  isAuthServerAvailable,
+  AUTH_SERVER_URL
+} from '../api/auth.js';
 
 // Storage keys
 const SESSION_TOKEN_KEY = 'sessionToken';
 const USER_KEY = 'user';
+const EXPIRES_AT_KEY = 'expiresAt';
 
-// App configuration for cross-origin logout cascade
+// Session validation configuration
+export const VALIDATION_INTERVAL_MS = 30000; // 30 seconds
+export const SESSION_REFRESH_BUFFER_MS = 300000; // 5 minutes before expiry
+
+// Re-export auth server URL for other components
+export { AUTH_SERVER_URL };
+
+// App configuration for cross-origin logout cascade (Phase 1 - kept for fallback)
 export const APP_CONFIG = {
   frontdoor: { url: 'http://localhost:5173', name: 'frontdoor' },
   crm: { url: 'http://localhost:5174', name: 'crm' },
@@ -15,14 +31,12 @@ export const APP_CONFIG = {
 export const LOGOUT_APPS = ['crm', 'revenue'];
 
 /**
- * Generate a unique session token
- * Uses crypto.randomUUID if available, falls back to custom implementation
+ * Generate a unique session token (fallback for mock auth)
  */
 const generateSessionToken = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback for older browsers
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -32,17 +46,12 @@ const generateSessionToken = () => {
 
 /**
  * Authentication hook for managing user session
- * Provides login, logout, and session state management
- *
- * Uses session tokens for cross-origin auth:
- * - sessionToken: unique identifier for the session
- * - user: cached user data
- *
- * Future: sessionToken will be used as Redis key for server-side session storage
+ * Supports both server-side sessions (Phase 2) and fallback mock auth
  */
 export function useAuth() {
   const [user, setUser] = useState(null);
   const [sessionToken, setSessionToken] = useState(null);
+  const [expiresAt, setExpiresAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -58,19 +67,20 @@ export function useAuth() {
       const params = new URLSearchParams(window.location.search);
       if (params.get('logout') === 'true') {
         clearSession();
-        // Don't clear URL here - let the app handle cascade logic first
-        // URL will be cleaned up after cascade completes
         setLoading(false);
         return;
       }
 
       const storedToken = localStorage.getItem(SESSION_TOKEN_KEY);
       const storedUser = localStorage.getItem(USER_KEY);
+      const storedExpiresAt = localStorage.getItem(EXPIRES_AT_KEY);
 
-      // Both token and user must exist for valid session
       if (storedToken && storedUser) {
         setSessionToken(storedToken);
         setUser(JSON.parse(storedUser));
+        if (storedExpiresAt) {
+          setExpiresAt(storedExpiresAt);
+        }
       } else {
         clearSession();
       }
@@ -88,23 +98,28 @@ export function useAuth() {
   const clearSession = () => {
     localStorage.removeItem(SESSION_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(EXPIRES_AT_KEY);
     setSessionToken(null);
     setUser(null);
+    setExpiresAt(null);
   };
 
   /**
    * Store session data in localStorage and state
    */
-  const setSession = (token, userData) => {
+  const setSession = (token, userData, expires = null) => {
     localStorage.setItem(SESSION_TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    if (expires) {
+      localStorage.setItem(EXPIRES_AT_KEY, expires);
+      setExpiresAt(expires);
+    }
     setSessionToken(token);
     setUser(userData);
   };
 
   /**
    * Initialize session from URL parameters (for cross-origin auth)
-   * Returns true if session was initialized from URL
    */
   const initSessionFromURL = () => {
     const params = new URLSearchParams(window.location.search);
@@ -115,8 +130,6 @@ export function useAuth() {
       try {
         const userData = JSON.parse(decodeURIComponent(urlUser));
         setSession(urlToken, userData);
-
-        // Clean up URL
         window.history.replaceState({}, '', window.location.pathname);
         return true;
       } catch (err) {
@@ -128,48 +141,60 @@ export function useAuth() {
 
   /**
    * Check if logout was requested via URL parameter
-   * Returns true if logout was requested
-   * Note: Does NOT clear URL - caller should handle URL cleanup after cascade
    */
   const checkLogoutFromURL = () => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('logout') === 'true') {
       clearSession();
-      // Don't clear URL here - let cascade logic handle it
       return true;
     }
     return false;
   };
 
+  /**
+   * Login with username and password
+   * Uses server auth if available, falls back to mock auth
+   */
   const login = async (username, password) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Mock authentication - replace with real API call later
-      // For now, accept any non-empty username/password
       if (!username || !password) {
         throw new Error('Username and password are required');
       }
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Try server auth first
+      const serverAvailable = await isAuthServerAvailable();
 
-      // Generate session token
-      const token = generateSessionToken();
+      if (serverAvailable) {
+        const result = await serverLogin(username, password);
 
-      // Mock user object
-      const userData = {
-        username,
-        email: `${username}@example.com`,
-        role: 'user',
-        loginTime: new Date().toISOString()
-      };
+        if (result.error) {
+          setError(result.error);
+          return { success: false, error: result.error };
+        }
 
-      // Store session
-      setSession(token, userData);
+        const { sessionToken: token, user: userData, expiresAt: expires } = result;
+        setSession(token, userData, expires);
 
-      return { success: true, sessionToken: token, user: userData };
+        return { success: true, sessionToken: token, user: userData };
+      } else {
+        // Fallback to mock auth
+        console.warn('Auth server unavailable, using mock auth');
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const token = generateSessionToken();
+        const userData = {
+          username,
+          email: `${username}@example.com`,
+          role: 'user',
+          loginTime: new Date().toISOString()
+        };
+
+        setSession(token, userData);
+        return { success: true, sessionToken: token, user: userData };
+      }
     } catch (err) {
       setError(err.message);
       return { success: false, error: err.message };
@@ -178,14 +203,87 @@ export function useAuth() {
     }
   };
 
-  const logout = () => {
+  /**
+   * Logout - invalidates session server-side and clears local storage
+   */
+  const logout = async () => {
+    const token = sessionToken || localStorage.getItem(SESSION_TOKEN_KEY);
+
+    // Invalidate server-side (fire and forget)
+    if (token) {
+      serverLogout(token).catch(err => {
+        console.warn('Server logout failed:', err);
+      });
+    }
+
     clearSession();
     setError(null);
   };
 
   /**
+   * Validate session with server
+   * Returns true if session is valid, false if invalid
+   */
+  const validateSession = useCallback(async () => {
+    const token = sessionToken || localStorage.getItem(SESSION_TOKEN_KEY);
+    if (!token) return false;
+
+    try {
+      const result = await serverValidate(token);
+
+      if (!result.valid) {
+        clearSession();
+        return false;
+      }
+
+      // Update user data and expiry from server
+      if (result.user) {
+        setUser(result.user);
+        localStorage.setItem(USER_KEY, JSON.stringify(result.user));
+      }
+      if (result.expiresAt) {
+        setExpiresAt(result.expiresAt);
+        localStorage.setItem(EXPIRES_AT_KEY, result.expiresAt);
+      }
+
+      return true;
+    } catch (err) {
+      console.warn('Session validation failed (network error):', err);
+      // Graceful degradation: assume valid on network error
+      return true;
+    }
+  }, [sessionToken]);
+
+  /**
+   * Refresh session if nearing expiry
+   */
+  const refreshSessionIfNeeded = useCallback(async () => {
+    const expires = expiresAt || localStorage.getItem(EXPIRES_AT_KEY);
+    if (!expires) return;
+
+    const expiryTime = new Date(expires).getTime();
+    const now = Date.now();
+    const timeUntilExpiry = expiryTime - now;
+
+    // Refresh if within 5 minutes of expiry
+    if (timeUntilExpiry <= SESSION_REFRESH_BUFFER_MS && timeUntilExpiry > 0) {
+      const token = sessionToken || localStorage.getItem(SESSION_TOKEN_KEY);
+      if (token) {
+        try {
+          const result = await serverRefresh(token);
+          if (result.expiresAt) {
+            setExpiresAt(result.expiresAt);
+            localStorage.setItem(EXPIRES_AT_KEY, result.expiresAt);
+          }
+        } catch (err) {
+          console.warn('Session refresh failed:', err);
+        }
+      }
+    }
+  }, [expiresAt, sessionToken]);
+
+  /**
    * Get session data for cross-origin transfer
-   * Returns URL-safe parameters to pass to other apps
    */
   const getSessionParams = () => {
     const token = localStorage.getItem(SESSION_TOKEN_KEY);
@@ -212,51 +310,28 @@ export function useAuth() {
     return baseUrl;
   };
 
-  /**
-   * Build logout URL with "from" parameter for cascade tracking
-   * @param {string} currentApp - The app initiating or continuing the logout
-   * @param {string} existingFrom - Existing "from" parameter value (if any)
-   * @returns {string} - URL to redirect to for logout cascade
-   */
+  // === Phase 1 Logout Cascade Functions (kept for fallback) ===
+
   const buildLogoutUrl = (currentApp, existingFrom = '') => {
     const newFrom = existingFrom ? `${existingFrom}|${currentApp}` : currentApp;
     return `${APP_CONFIG.frontdoor.url}/?logout=true&from=${encodeURIComponent(newFrom)}`;
   };
 
-  /**
-   * Get the "from" parameter from current URL (for logout cascade)
-   * @returns {string} - The "from" parameter value or empty string
-   */
   const getLogoutFromParam = () => {
     const params = new URLSearchParams(window.location.search);
     return params.get('from') || '';
   };
 
-  /**
-   * Parse the "from" parameter into an array of visited apps
-   * @param {string} fromParam - The "from" parameter value
-   * @returns {string[]} - Array of app names that have been visited
-   */
   const parseVisitedApps = (fromParam) => {
     if (!fromParam) return [];
     return fromParam.split('|').filter(Boolean);
   };
 
-  /**
-   * Check if all apps have been visited in the logout cascade
-   * @param {string} fromParam - The "from" parameter value
-   * @returns {boolean} - True if all apps have cleared their localStorage
-   */
   const isLogoutCascadeComplete = (fromParam) => {
     const visited = parseVisitedApps(fromParam);
     return LOGOUT_APPS.every(app => visited.includes(app));
   };
 
-  /**
-   * Get the next app to visit in the logout cascade
-   * @param {string} fromParam - The "from" parameter value
-   * @returns {string|null} - Next app name or null if cascade complete
-   */
   const getNextLogoutApp = (fromParam) => {
     const visited = parseVisitedApps(fromParam);
     return LOGOUT_APPS.find(app => !visited.includes(app)) || null;
@@ -265,6 +340,7 @@ export function useAuth() {
   return {
     user,
     sessionToken,
+    expiresAt,
     loading,
     error,
     login,
@@ -272,6 +348,8 @@ export function useAuth() {
     checkSession,
     initSessionFromURL,
     checkLogoutFromURL,
+    validateSession,
+    refreshSessionIfNeeded,
     getSessionParams,
     buildAuthUrl,
     buildLogoutUrl,

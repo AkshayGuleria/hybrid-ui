@@ -34,6 +34,9 @@ function App() {
   // Track if we're in the middle of a logout cascade
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  // Local error state for session expired message
+  const [sessionExpiredError, setSessionExpiredError] = useState(null);
+
   // Handle logout cascade orchestration
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -67,6 +70,19 @@ function App() {
       }
     }
   }, [logout, isLogoutCascadeComplete, getNextLogoutApp]);
+
+  // Handle session expired message
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('sessionExpired') === 'true') {
+      setSessionExpiredError('Your session has expired. Please log in again.');
+      // Clean up URL
+      params.delete('sessionExpired');
+      const newSearch = params.toString();
+      const newUrl = newSearch ? `${window.location.pathname}?${newSearch}` : window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
 
   // Handle returnTo when already authenticated
   useEffect(() => {
@@ -130,7 +146,7 @@ function App() {
 
   // Show login if not authenticated
   if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} loading={loading} error={error} />;
+    return <Login onLogin={handleLogin} loading={loading} error={sessionExpiredError || error} />;
   }
 
   // Show authenticated view with navigation

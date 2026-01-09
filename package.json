@@ -7,7 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:all": "npm run dev:frontdoor & npm run dev:crm & npm run dev:revenue",
+    "dev:all": "npm run dev:auth & npm run dev:frontdoor & npm run dev:crm & npm run dev:revenue",
+    "dev:auth": "npm run dev --workspace=@hybrid-ui/auth-server",
     "dev:frontdoor": "npm run dev --workspace=@hybrid-ui/frontdoor-app",
     "dev:crm": "npm run dev --workspace=@hybrid-ui/crm-app",
     "dev:revenue": "npm run dev --workspace=@hybrid-ui/revenue-app",
