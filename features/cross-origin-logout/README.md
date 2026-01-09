@@ -1,16 +1,16 @@
 ---
 id: cross-origin-logout
 title: Fix Cross-Origin Logout localStorage Clearing
-status: in-progress
+status: done
 priority: high
 assignee: niko, habibi
 created: 2026-01-07
-updated: 2026-01-08
+updated: 2026-01-10
 dependencies: []
 blocks: []
 phase: 2 of 2
 phase1_status: done
-phase2_status: planned
+phase2_status: done
 ---
 
 # Fix Cross-Origin Logout localStorage Clearing
@@ -104,14 +104,14 @@ Implement proper server-side session management with token invalidation.
 - [x] No JavaScript errors during cascade
 - [x] Final redirect lands on frontdoor login page
 
-### Phase 2 (Long-term)
-- [ ] Auth server provides session validation endpoint
-- [ ] All apps validate session token on mount and periodically
-- [ ] Logout invalidates session server-side
-- [ ] All open tabs detect invalid session within 30 seconds
-- [ ] Auto-logout redirects to frontdoor with returnTo URL
-- [ ] Session timeout is configurable
-- [ ] Graceful handling of network failures
+### Phase 2 (Long-term) - IMPLEMENTED
+- [x] Auth server provides session validation endpoint
+- [x] All apps validate session token on mount and periodically
+- [x] Logout invalidates session server-side
+- [x] All open tabs detect invalid session within 30 seconds
+- [x] Auto-logout redirects to frontdoor with returnTo URL
+- [x] Session timeout is configurable
+- [x] Graceful handling of network failures
 
 ## Subtasks
 
@@ -127,19 +127,20 @@ Implement proper server-side session management with token invalidation.
 | 6 | Update ProtectedRoute to handle logout cascade | done | niko | Handles ?logout=true, adds appName to from param |
 | 7 | Test logout from each app | done | | Verified cascade flow works |
 
-### Phase 2: Server-Side Sessions (Future)
+### Phase 2: Server-Side Sessions - COMPLETED
 
 | ID | Task | Status | Assignee | Notes |
 |----|------|--------|----------|-------|
-| 8 | Design auth server API (validate, logout, refresh) | planned | | Architecture planning |
-| 9 | Implement mock auth server | planned | habibi | Can be simple Express server |
-| 10 | Update useAuth to validate session with server | planned | niko | Add periodic validation |
-| 11 | Implement server-side logout endpoint | planned | habibi | Invalidate session token |
-| 12 | Add auto-logout on invalid session | planned | niko | Redirect with returnTo |
-| 13 | Implement session timeout | planned | niko | Configurable duration |
-| 14 | Add session refresh mechanism | planned | niko | Extend session on activity |
-| 15 | Migrate all apps to server-backed auth | planned | niko, yap, billman | Update all apps |
-| 16 | Remove Phase 1 logout cascade | planned | niko | Clean up after Phase 2 complete |
+| 8 | Design auth server API (validate, logout, refresh) | done | niko, habibi | POST /auth/login, validate, logout, refresh |
+| 9 | Implement auth server with Redis | done | habibi | Express + ioredis on port 5176 |
+| 10 | Update useAuth to validate session with server | done | niko | validateSession() and refreshSessionIfNeeded() |
+| 11 | Implement server-side logout endpoint | done | habibi | Invalidates Redis session keys |
+| 12 | Add auto-logout on invalid session | done | niko | ProtectedRoute redirects with sessionExpired |
+| 13 | Implement session timeout | done | niko | 30-minute TTL, configurable via env |
+| 14 | Add session refresh mechanism | done | niko | Refreshes 5 minutes before expiry |
+| 15 | Migrate all apps to server-backed auth | done | niko | All apps use validateSession |
+| 16 | Fix logout await issue | done | niko | Await logout before navigation for Redis cleanup |
+| 17 | Keep Phase 1 cascade as fallback | done | niko | Kept for redundancy |
 
 ## Technical Notes
 
@@ -341,6 +342,19 @@ window.addEventListener('storage', (e) => {
 Can't use httpOnly cookies across different ports in development (different origins).
 
 ## Progress Log
+
+### 2026-01-10
+- **Phase 2 COMPLETED** - Server-side session validation fully implemented
+- Created auth-server package with Express + Redis on port 5176
+- Implemented session API: login, validate, logout, refresh endpoints
+- Test users: admin/admin, user/user, demo/demo
+- Updated useAuth hook with server validation and graceful degradation
+- Updated ProtectedRoute with 30-second periodic validation
+- Updated Frontdoor to handle sessionExpired parameter
+- Fixed logout await issue - ensures Redis keys are deleted before navigation
+- All apps now auto-logout within 30 seconds when session is invalidated
+- Graceful fallback to mock auth when server unavailable
+- **Feature status: DONE** - Both phases complete and tested
 
 ### 2026-01-08
 - **Phase 1 IMPLEMENTED** using "from" parameter approach (per tommi's recommendation)

@@ -11,7 +11,7 @@ This directory contains feature specifications and tracks project progress for t
 | [routing](./routing/) | **done** | high | niko, yap, billman | 100% |
 | [api-layer](./api-layer/) | **done** | high | yap, billman | 100% |
 | [crm-crud](./crm-crud/) | **done** | medium | yap | 100% |
-| [cross-origin-logout](./cross-origin-logout/) | **in-progress** | high | niko, habibi | Phase 1 ✅ / Phase 2 ⬜ |
+| [cross-origin-logout](./cross-origin-logout/) | **done** | high | niko, habibi | Phase 1 ✅ / Phase 2 ✅ |
 
 ## How It Works
 
