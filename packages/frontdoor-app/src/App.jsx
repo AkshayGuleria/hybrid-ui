@@ -37,6 +37,54 @@ function App() {
   // Local error state for session expired message
   const [sessionExpiredError, setSessionExpiredError] = useState(null);
 
+  // Handle Azure AD auth success callback
+  useEffect(() => {
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+
+    // Check if we're on the /auth-success route
+    if (path === '/auth-success') {
+      const sessionToken = params.get('sessionToken');
+      const returnTo = params.get('returnTo');
+
+      if (sessionToken && returnTo) {
+        // Store session in frontdoor's localStorage
+        localStorage.setItem('sessionToken', sessionToken);
+
+        // Fetch user data from session validation
+        fetch('http://localhost:5176/auth/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionToken })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.valid) {
+              localStorage.setItem('user', JSON.stringify(data.user));
+              localStorage.setItem('expiresAt', data.expiresAt);
+
+              // Redirect to original destination with session params
+              const authUrl = buildAuthUrl(returnTo);
+              window.location.href = authUrl;
+            } else {
+              console.error('Session validation failed');
+              window.location.href = '/?error=session_validation_failed';
+            }
+          })
+          .catch(err => {
+            console.error('Session validation failed:', err);
+            window.location.href = '/?error=session_validation_failed';
+          });
+      } else {
+        // Missing parameters, redirect to home
+        window.location.href = '/';
+      }
+
+      // Prevent the rest of the component from rendering during redirect
+      return;
+    }
+  }, [buildAuthUrl]);
+
   // Handle logout cascade orchestration
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

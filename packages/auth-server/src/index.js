@@ -43,23 +43,23 @@ async function start() {
   app.listen(PORT, () => {
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║                   Auth Server Started                      ║
+║                   Auth Server Started                     ║
 ╠═══════════════════════════════════════════════════════════╣
-║  Port:        ${PORT}                                         ║
-║  Environment: ${NODE_ENV.padEnd(11)}                            ║
-║  Redis:       Connected                                    ║
+║  Port:        ${PORT}                                     ║
+║  Environment: ${NODE_ENV.padEnd(11)}                      ║
+║  Redis:       Connected                                   ║
 ╠═══════════════════════════════════════════════════════════╣
-║  Endpoints:                                                ║
-║    POST /auth/login     - Login with username/password     ║
-║    POST /auth/validate  - Validate session token           ║
-║    POST /auth/logout    - Invalidate session               ║
-║    POST /auth/refresh   - Refresh session TTL              ║
-║    GET  /health         - Health check                     ║
+║  Endpoints:                                               ║
+║    POST /auth/login     - Login with username/password    ║
+║    POST /auth/validate  - Validate session token          ║
+║    POST /auth/logout    - Invalidate session              ║
+║    POST /auth/refresh   - Refresh session TTL             ║
+║    GET  /health         - Health check                    ║
 ╠═══════════════════════════════════════════════════════════╣
-║  Test Users:                                               ║
-║    admin / admin                                           ║
-║    user  / user                                            ║
-║    demo  / demo                                            ║
+║  Test Users:                                              ║
+║    admin / admin                                          ║
+║    user  / user                                           ║
+║    demo  / demo                                           ║
 ╚═══════════════════════════════════════════════════════════╝
     `);
   });

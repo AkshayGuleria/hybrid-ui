@@ -6,12 +6,102 @@ import {
   invalidateSession,
   refreshSession
 } from '../services/session.js';
+import {
+  isAzureADConfigured,
+  getAuthUrl,
+  exchangeCodeForTokens,
+  getUserInfo,
+  storeAzureTokens,
+  revokeAzureTokens
+} from '../services/azure.js';
 
 const router = Router();
 
 /**
+ * GET /auth/azure/login
+ * Initiate Azure AD OAuth flow
+ * Query params: { returnTo }
+ * Redirects to Azure AD login page
+ */
+router.get('/azure/login', async (req, res) => {
+  try {
+    if (!isAzureADConfigured()) {
+      console.error('Azure AD login attempted but Azure AD is not configured');
+      return res.redirect('http://localhost:5173?error=azure_not_configured');
+    }
+
+    const returnTo = req.query.returnTo || 'http://localhost:5173';
+
+    // Encode returnTo in state parameter
+    const state = Buffer.from(JSON.stringify({ returnTo })).toString('base64');
+
+    const authUrl = await getAuthUrl(state);
+    console.log(`Redirecting to Azure AD for authentication, returnTo: ${returnTo}`);
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error('Azure AD login error:', error);
+    res.redirect('http://localhost:5173?error=azure_login_failed');
+  }
+});
+
+/**
+ * GET /auth/azure/callback
+ * Azure AD OAuth callback handler
+ * Query params: { code, state }
+ * Redirects to frontdoor with session token
+ */
+router.get('/azure/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+
+    if (!code) {
+      throw new Error('No authorization code received');
+    }
+
+    // Decode state to get returnTo URL
+    const { returnTo } = JSON.parse(Buffer.from(state, 'base64').toString());
+
+    console.log('Received Azure AD callback, exchanging code for tokens...');
+
+    // Exchange code for tokens
+    const tokens = await exchangeCodeForTokens(code);
+
+    // Get user info from Microsoft Graph
+    const userInfo = await getUserInfo(tokens.accessToken);
+
+    console.log(`Azure AD user authenticated: ${userInfo.username}`);
+
+    // Create user session
+    const user = {
+      username: userInfo.username,
+      email: userInfo.email,
+      displayName: userInfo.displayName,
+      role: userInfo.role,
+      authProvider: 'azure-ad'
+    };
+
+    const { sessionToken, expiresAt } = await createSession(user);
+
+    // Store Azure AD tokens in Redis
+    await storeAzureTokens(sessionToken, tokens);
+
+    console.log(`Session created for Azure AD user: ${sessionToken.substring(0, 8)}...`);
+
+    // Redirect to frontdoor with session token
+    const redirectUrl = new URL('http://localhost:5173/auth-success');
+    redirectUrl.searchParams.set('sessionToken', sessionToken);
+    redirectUrl.searchParams.set('returnTo', returnTo);
+
+    res.redirect(redirectUrl.toString());
+  } catch (error) {
+    console.error('Azure AD callback error:', error);
+    res.redirect('http://localhost:5173?error=azure_auth_failed');
+  }
+});
+
+/**
  * POST /auth/login
- * Authenticate user with username/password
+ * Authenticate user with username/password (mock authentication for development)
  * Request: { username, password }
  * Response: { sessionToken, user, expiresAt } or { error }
  */
@@ -89,7 +179,7 @@ router.post('/validate', async (req, res) => {
 
 /**
  * POST /auth/logout
- * Invalidate a session token
+ * Invalidate a session token and revoke Azure AD tokens if present
  * Request: { sessionToken }
  * Response: { success: true }
  */
@@ -98,6 +188,10 @@ router.post('/logout', async (req, res) => {
     const { sessionToken } = req.body;
 
     if (sessionToken) {
+      // Revoke Azure AD tokens if they exist (idempotent)
+      await revokeAzureTokens(sessionToken);
+
+      // Invalidate session
       const deleted = await invalidateSession(sessionToken);
       if (deleted) {
         console.log(`Session invalidated: ${sessionToken.substring(0, 8)}...`);

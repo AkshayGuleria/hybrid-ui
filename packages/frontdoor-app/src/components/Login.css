@@ -54,10 +54,70 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.9rem;
+  margin-bottom: 1rem;
 }
 
 .error-icon {
   font-size: 1.2rem;
+}
+
+.azure-login-button {
+  width: 100%;
+  padding: 0.875rem;
+  background: #0078d4;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  margin-bottom: 1rem;
+}
+
+.azure-login-button:hover {
+  background: #106ebe;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 120, 212, 0.4);
+}
+
+.azure-login-button:active {
+  transform: translateY(0);
+}
+
+.azure-login-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.microsoft-icon {
+  font-size: 1.2rem;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+  color: #718096;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.divider span {
+  padding: 0 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .form-group {

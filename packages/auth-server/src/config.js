@@ -17,6 +17,25 @@ export const CORS_ORIGINS = [
   'http://localhost:5175'  // Revenue
 ];
 
+// Azure AD configuration
+export const AZURE_AD_TENANT_ID = process.env.AZURE_AD_TENANT_ID;
+export const AZURE_AD_CLIENT_ID = process.env.AZURE_AD_CLIENT_ID;
+export const AZURE_AD_CLIENT_SECRET = process.env.AZURE_AD_CLIENT_SECRET;
+export const AZURE_AD_REDIRECT_URI = process.env.AZURE_AD_REDIRECT_URI || 'http://localhost:5176/auth/azure/callback';
+export const AZURE_AD_AUTHORITY = AZURE_AD_TENANT_ID ? `https://login.microsoftonline.com/${AZURE_AD_TENANT_ID}` : null;
+
+// MSAL configuration
+export const MSAL_CONFIG = AZURE_AD_TENANT_ID && AZURE_AD_CLIENT_ID && AZURE_AD_CLIENT_SECRET ? {
+  auth: {
+    clientId: AZURE_AD_CLIENT_ID,
+    authority: AZURE_AD_AUTHORITY,
+    clientSecret: AZURE_AD_CLIENT_SECRET
+  }
+} : null;
+
+// Azure AD scopes
+export const AZURE_AD_SCOPES = ['openid', 'profile', 'email', 'User.Read'];
+
 // Test users (username -> { password, role, email })
 export const TEST_USERS = {
   admin: {

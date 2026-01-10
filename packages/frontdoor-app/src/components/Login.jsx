@@ -14,6 +14,16 @@ export function Login({ onLogin, loading, error }) {
     await onLogin(username, password);
   };
 
+  const handleAzureLogin = () => {
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get('returnTo') || 'http://localhost:5173';
+
+    // Redirect to auth server Azure AD login
+    const azureLoginUrl = new URL('http://localhost:5176/auth/azure/login');
+    azureLoginUrl.searchParams.set('returnTo', returnTo);
+    window.location.href = azureLoginUrl.toString();
+  };
+
   return (
     <div className="login-container">
       <div className="login-card">
@@ -23,14 +33,27 @@ export function Login({ onLogin, loading, error }) {
           <p>Sign in to access your applications</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          {error && (
-            <div className="error-message">
-              <span className="error-icon">⚠️</span>
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="error-message">
+            <span className="error-icon">⚠️</span>
+            {error}
+          </div>
+        )}
 
+        <button
+          onClick={handleAzureLogin}
+          className="azure-login-button"
+          type="button"
+        >
+          <span className="microsoft-icon">🔒</span>
+          Sign in with Microsoft
+        </button>
+
+        <div className="divider">
+          <span>or</span>
+        </div>
+
+        <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
             <label htmlFor="username">Username</label>
             <input
@@ -65,7 +88,7 @@ export function Login({ onLogin, loading, error }) {
 
         <div className="login-footer">
           <p className="hint-text">
-            💡 Tip: Use any username and password to login (mock authentication)
+            💡 Development: Use Azure AD or mock login (any username/password)
           </p>
         </div>
       </div>
