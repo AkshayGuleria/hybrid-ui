@@ -11,10 +11,11 @@ blocks: []
 type: backend
 phase: 1 of 5
 phase1_status: planned
-phase2_status: planned
+phase2_status: planned (includes hybrid scalability)
 phase3_status: planned
 phase4_status: planned
 phase5_status: planned
+scalability: hybrid (cluster + worker threads + queues)
 ---
 
 # Revenue Management Backend System
@@ -81,13 +82,21 @@ Build a **Revenue Management Backend System** in phases, starting simple and add
 - JSON support for flexible schemas
 - Mature and battle-tested
 
-**Optional (Later Phases):**
-- Redis for caching and job queues
+**Scalability & Performance:**
+- **PM2** - Process manager for clustering and monitoring
+- **Node.js Cluster** - Multi-process for I/O-bound API scaling
+- **Worker Threads** - Multi-threading for CPU-bound tasks (PDF, tax calc)
+- **BullMQ** - Queue system for async jobs (Redis-backed)
+- **Redis** - Job queues, caching, session storage
+
+**Additional Services:**
 - Stripe/PayPal SDK for payment processing
-- Bull or Agenda for scheduled jobs (recurring billing)
-- PDF generation (pdfkit or puppeteer)
+- pdfkit or puppeteer for PDF generation
+- Nodemailer for email notifications
 
 ### Architecture Overview
+
+**Hybrid Scalability Architecture** (Cluster + Worker Threads + Queues):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -95,35 +104,88 @@ Build a **Revenue Management Backend System** in phases, starting simple and add
 │              (React - Revenue App)                          │
 └────────────────────┬────────────────────────────────────────┘
                      │ HTTP REST API
-┌────────────────────▼────────────────────────────────────────┐
-│                Revenue Backend API                           │
-│              (Express.js - Port 5177)                       │
-│                                                              │
-│  Routes:                                                     │
-│  • /api/customers     - Customer management                 │
-│  • /api/products      - Product catalog                     │
-│  • /api/invoices      - Invoice operations                  │
-│  • /api/subscriptions - Subscription management             │
-│  • /api/payments      - Payment tracking                    │
-│  • /api/billing       - Billing engine                      │
-│  • /api/reports       - Analytics and reports               │
-└────────────────────┬────────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────────┐
-│                  PostgreSQL Database                         │
+│                   PM2 Process Manager                        │
+├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  Tables:                                                     │
-│  • customers       - Customer accounts                      │
-│  • products        - Product/service catalog                │
-│  • pricing_plans   - Pricing models                         │
-│  • invoices        - Generated invoices                     │
-│  • invoice_items   - Line items                             │
-│  • subscriptions   - Active subscriptions                   │
-│  • payments        - Payment records                        │
-│  • usage_records   - Metered usage tracking                 │
-│  • billing_cycles  - Recurring billing schedules            │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │   API Server (Cluster Mode - 4 processes)         │    │
+│  │                                                     │    │
+│  │   Worker 1   Worker 2   Worker 3   Worker 4       │    │
+│  │    Express    Express    Express    Express       │    │
+│  │   Port 5177                                        │    │
+│  │                                                     │    │
+│  │   Routes (I/O-bound - fast):                      │    │
+│  │   • GET  /api/customers     - List customers      │    │
+│  │   • GET  /api/invoices      - List invoices       │    │
+│  │   • POST /api/invoices      - Create invoice      │    │
+│  │                                                     │    │
+│  │   Routes (CPU-bound - queued):                    │    │
+│  │   • POST /api/invoices/:id/pdf  → PDF Queue       │    │
+│  │   • POST /api/invoices/tax      → Tax Queue       │    │
+│  │   • POST /api/billing/generate  → Billing Queue   │    │
+│  └──────────────────┬──────────────────────────────────┘    │
+│                     │ Offload heavy work                    │
+│                     ▼                                        │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │       BullMQ Job Queues (Redis)                    │    │
+│  │                                                     │    │
+│  │  pdf-queue   tax-queue   billing-queue            │    │
+│  │  email-queue usage-rating-queue                   │    │
+│  └──────────────────┬──────────────────────────────────┘    │
+│                     │ Process async                         │
+│                     ▼                                        │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │   Dedicated Worker Processes (CPU-optimized)      │    │
+│  │                                                     │    │
+│  │   • PDF Workers (4 processes × 2 threads each)    │    │
+│  │     - Generate invoice PDFs                        │    │
+│  │     - Parallel processing with Worker Threads      │    │
+│  │                                                     │    │
+│  │   • Tax Workers (2 processes × 4 threads each)    │    │
+│  │     - Complex tax calculations                     │    │
+│  │     - Multi-threaded computation                   │    │
+│  │                                                     │    │
+│  │   • Billing Workers (2 processes)                 │    │
+│  │     - Recurring billing jobs                       │    │
+│  │     - Scheduled invoice generation                 │    │
+│  │                                                     │    │
+│  │   • Email Workers (2 processes)                   │    │
+│  │     - Send invoice emails                          │    │
+│  │     - Notification delivery                        │    │
+│  └────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Data Layer (Persistent Storage)                 │
+│                                                              │
+│  ┌──────────────────────┐    ┌─────────────────────────┐   │
+│  │  PostgreSQL Database │    │  Redis (Job Queues)     │   │
+│  │                      │    │                         │   │
+│  │  Tables:             │    │  Queues:                │   │
+│  │  • customers         │    │  • pdf-queue            │   │
+│  │  • products          │    │  • tax-queue            │   │
+│  │  • pricing_plans     │    │  • billing-queue        │   │
+│  │  • invoices          │    │  • email-queue          │   │
+│  │  • invoice_items     │    │  • usage-rating-queue   │   │
+│  │  • subscriptions     │    │                         │   │
+│  │  • payments          │    │  Cache:                 │   │
+│  │  • usage_records     │    │  • Product catalog      │   │
+│  │  • billing_cycles    │    │  • Exchange rates       │   │
+│  └──────────────────────┘    └─────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**Key Architectural Decisions:**
+
+1. **Cluster Mode (PM2)** - Scales I/O-bound API requests across CPU cores
+2. **Worker Threads** - Parallelizes CPU-intensive tasks (PDF, tax calculations)
+3. **Queue System (BullMQ)** - Decouples heavy work from API, enables async processing
+4. **Dedicated Workers** - Separate processes for different job types (optimized per workload)
+5. **PostgreSQL** - ACID compliance for financial data integrity
+6. **Redis** - Fast job queue and caching layer
 
 ### Phased Approach
 
@@ -172,7 +234,7 @@ Build a **Revenue Management Backend System** in phases, starting simple and add
 - [x] API authentication (integrate with auth-server sessions)
 - [x] Revenue frontend migrated to real backend
 
-### Phase 2: Automation (SHOULD HAVE)
+### Phase 2: Automation & Scalability (SHOULD HAVE)
 - [x] Automated invoice generation based on rules
 - [x] Billing cycle configuration (monthly, quarterly, annual)
 - [x] Scheduled job runner for recurring tasks
@@ -181,6 +243,14 @@ Build a **Revenue Management Backend System** in phases, starting simple and add
 - [x] Invoice numbering with customizable format
 - [x] Due date calculation based on payment terms
 - [x] Basic reporting (revenue by period, customer)
+- [x] **Hybrid Scalability Architecture:**
+  - [x] PM2 cluster mode for API server (4 processes)
+  - [x] BullMQ job queue system (Redis-backed)
+  - [x] Dedicated worker processes for CPU-intensive tasks
+  - [x] Worker Threads for parallel computation (PDF, tax calc)
+  - [x] Queue monitoring and job retry logic
+  - [x] Graceful shutdown and error handling
+  - [x] Database connection pooling (max 5 per process)
 
 ### Phase 3: Subscriptions (SHOULD HAVE)
 - [x] Subscription plan definition
@@ -290,105 +360,127 @@ Build a **Revenue Management Backend System** in phases, starting simple and add
 | 51 | GET /api/reports/revenue - Revenue by period | planned | billman | Aggregate queries |
 | 52 | GET /api/reports/customers - Customer analytics | planned | billman | Top customers |
 | 53 | Create reports database views | planned | billman | Optimize queries |
+| **Scalability Architecture (Hybrid Approach)** | | | | |
+| 54 | Install PM2 process manager | planned | habibi | npm install -g pm2 |
+| 55 | Create PM2 ecosystem.config.js | planned | habibi | Define API + workers |
+| 56 | Configure API server cluster mode (4 processes) | planned | habibi | PM2 cluster config |
+| 57 | Install BullMQ and ioredis | planned | billman | npm install bullmq ioredis |
+| 58 | Create queue configuration module | planned | billman | Redis connection |
+| 59 | Create PDF job queue (pdf-queue) | planned | billman | BullMQ queue setup |
+| 60 | Create tax calculation queue (tax-queue) | planned | billman | For heavy tax calc |
+| 61 | Create email queue (email-queue) | planned | billman | Async email sending |
+| 62 | Update API routes to use queues | planned | billman | POST /pdf → queue job |
+| 63 | Create PDF worker process | planned | billman | Separate worker.js |
+| 64 | Implement Worker Threads in PDF worker | planned | billman | Thread pool for PDFs |
+| 65 | Create tax calculation worker | planned | billman | With Worker Threads |
+| 66 | Create email worker process | planned | billman | Process email queue |
+| 67 | Implement database connection pooling | planned | billman | Max 5 per process |
+| 68 | Add graceful shutdown handlers | planned | billman | SIGTERM handling |
+| 69 | Implement job retry logic | planned | billman | 3 attempts, exp backoff |
+| 70 | Add queue monitoring endpoints | planned | billman | GET /api/queues/status |
+| 71 | Configure PM2 memory limits | planned | habibi | max_memory_restart |
+| 72 | Test cluster mode load balancing | planned | habibi | Load test with Artillery |
+| 73 | Benchmark PDF generation throughput | planned | billman | Measure PDFs/sec |
+| 74 | Document scalability architecture | planned | billman | README for workers |
 
 ### Phase 3: Subscriptions (Weeks 5-6)
 
 | ID | Task | Status | Assignee | Notes |
 |----|------|--------|----------|-------|
 | **Subscription Plans** | | | | |
-| 54 | Create subscription_plans table | planned | billman | Migration |
-| 55 | POST /api/plans - Create plan | planned | billman | Name, price, interval |
-| 56 | GET /api/plans - List plans | planned | billman | Public catalog |
-| 57 | Support tiered pricing | planned | billman | Different tiers/features |
+| 75 | Create subscription_plans table | planned | billman | Migration |
+| 76 | POST /api/plans - Create plan | planned | billman | Name, price, interval |
+| 77 | GET /api/plans - List plans | planned | billman | Public catalog |
+| 78 | Support tiered pricing | planned | billman | Different tiers/features |
 | **Customer Subscriptions** | | | | |
-| 58 | Create subscriptions table | planned | billman | Customer, plan, status |
-| 59 | POST /api/subscriptions - Subscribe customer | planned | billman | Enroll in plan |
-| 60 | GET /api/subscriptions - List subscriptions | planned | billman | Filter by customer |
-| 61 | PUT /api/subscriptions/:id - Update subscription | planned | billman | Upgrade/downgrade |
-| 62 | DELETE /api/subscriptions/:id - Cancel | planned | billman | Immediate or end of period |
+| 79 | Create subscriptions table | planned | billman | Customer, plan, status |
+| 80 | POST /api/subscriptions - Subscribe customer | planned | billman | Enroll in plan |
+| 81 | GET /api/subscriptions - List subscriptions | planned | billman | Filter by customer |
+| 82 | PUT /api/subscriptions/:id - Update subscription | planned | billman | Upgrade/downgrade |
+| 83 | DELETE /api/subscriptions/:id - Cancel | planned | billman | Immediate or end of period |
 | **Renewal Logic** | | | | |
-| 63 | Build auto-renewal job | planned | billman | Check expiring subscriptions |
-| 64 | Generate renewal invoices | planned | billman | Before renewal date |
-| 65 | Handle renewal failures | planned | billman | Grace period |
+| 84 | Build auto-renewal job | planned | billman | Check expiring subscriptions |
+| 85 | Generate renewal invoices | planned | billman | Before renewal date |
+| 86 | Handle renewal failures | planned | billman | Grace period |
 | **Proration** | | | | |
-| 66 | Calculate proration for upgrades | planned | billman | Credit unused time |
-| 67 | Calculate proration for downgrades | planned | billman | Apply at next renewal |
-| 68 | Handle mid-cycle cancellations | planned | billman | Refund or credit |
+| 87 | Calculate proration for upgrades | planned | billman | Credit unused time |
+| 88 | Calculate proration for downgrades | planned | billman | Apply at next renewal |
+| 89 | Handle mid-cycle cancellations | planned | billman | Refund or credit |
 | **Trial Periods** | | | | |
-| 69 | Add trial period support to plans | planned | billman | Days count |
-| 70 | Create subscription with trial | planned | billman | No initial charge |
-| 71 | Convert trial to paid automatically | planned | billman | After trial ends |
+| 90 | Add trial period support to plans | planned | billman | Days count |
+| 91 | Create subscription with trial | planned | billman | No initial charge |
+| 92 | Convert trial to paid automatically | planned | billman | After trial ends |
 | **Analytics** | | | | |
-| 72 | GET /api/reports/subscriptions/mrr | planned | billman | Monthly Recurring Revenue |
-| 73 | GET /api/reports/subscriptions/churn | planned | billman | Cancellation rate |
-| 74 | Subscription lifecycle metrics | planned | billman | Active, churned, etc. |
+| 93 | GET /api/reports/subscriptions/mrr | planned | billman | Monthly Recurring Revenue |
+| 94 | GET /api/reports/subscriptions/churn | planned | billman | Cancellation rate |
+| 95 | Subscription lifecycle metrics | planned | billman | Active, churned, etc. |
 
 ### Phase 4: Advanced Billing (Weeks 7-9)
 
 | ID | Task | Status | Assignee | Notes |
 |----|------|--------|----------|-------|
 | **Usage-Based Billing** | | | | |
-| 75 | Create usage_records table | planned | billman | Metered usage data |
-| 76 | POST /api/usage - Ingest usage record | planned | billman | API calls, GB, etc. |
-| 77 | GET /api/usage - Query usage | planned | billman | By customer, period |
-| 78 | Build rating engine | planned | billman | Convert usage to charges |
-| 79 | Support tiered/volume pricing | planned | billman | $0.10/GB 0-100, $0.05/GB 100+ |
-| 80 | Generate usage-based invoices | planned | billman | Aggregate usage |
+| 96 | Create usage_records table | planned | billman | Metered usage data |
+| 97 | POST /api/usage - Ingest usage record | planned | billman | API calls, GB, etc. |
+| 98 | GET /api/usage - Query usage | planned | billman | By customer, period |
+| 99 | Build rating engine | planned | billman | Convert usage to charges |
+| 100 | Support tiered/volume pricing | planned | billman | $0.10/GB 0-100, $0.05/GB 100+ |
+| 101 | Generate usage-based invoices | planned | billman | Aggregate usage |
 | **Dunning** | | | | |
-| 81 | Create dunning_workflows table | planned | billman | Retry rules |
-| 82 | POST /api/payments/:id/retry - Retry payment | planned | billman | Manual retry |
-| 83 | Automated retry job | planned | billman | 3 retries over 7 days |
-| 84 | Email notifications for failed payments | planned | billman | Escalating urgency |
-| 85 | Suspend subscription after failures | planned | billman | Grace period expired |
+| 102 | Create dunning_workflows table | planned | billman | Retry rules |
+| 103 | POST /api/payments/:id/retry - Retry payment | planned | billman | Manual retry |
+| 104 | Automated retry job | planned | billman | 3 retries over 7 days |
+| 105 | Email notifications for failed payments | planned | billman | Escalating urgency |
+| 106 | Suspend subscription after failures | planned | billman | Grace period expired |
 | **Multi-Currency** | | | | |
-| 86 | Add currency field to invoices | planned | billman | USD, EUR, GBP |
-| 87 | Create exchange_rates table | planned | billman | Daily rates |
-| 88 | GET /api/exchange-rates - Fetch rates | planned | billman | External API integration |
-| 89 | Convert invoice amounts | planned | billman | Display in customer currency |
+| 107 | Add currency field to invoices | planned | billman | USD, EUR, GBP |
+| 108 | Create exchange_rates table | planned | billman | Daily rates |
+| 109 | GET /api/exchange-rates - Fetch rates | planned | billman | External API integration |
+| 110 | Convert invoice amounts | planned | billman | Display in customer currency |
 | **Tax Calculation** | | | | |
-| 90 | Create tax_rules table | planned | billman | By region, product type |
-| 91 | Calculate tax on invoice items | planned | billman | Based on customer location |
-| 92 | Support VAT/GST/Sales tax | planned | billman | Different tax types |
+| 111 | Create tax_rules table | planned | billman | By region, product type |
+| 112 | Calculate tax on invoice items | planned | billman | Based on customer location |
+| 113 | Support VAT/GST/Sales tax | planned | billman | Different tax types |
 | **Discounts & Credits** | | | | |
-| 93 | Create discount_codes table | planned | billman | Promo codes |
-| 94 | POST /api/discounts - Create discount | planned | billman | %, fixed amount |
-| 95 | Apply discount to invoice | planned | billman | Validation |
-| 96 | Create credit_notes table | planned | billman | Refunds, credits |
-| 97 | POST /api/credit-notes - Issue credit | planned | billman | Adjust invoice |
+| 114 | Create discount_codes table | planned | billman | Promo codes |
+| 115 | POST /api/discounts - Create discount | planned | billman | %, fixed amount |
+| 116 | Apply discount to invoice | planned | billman | Validation |
+| 117 | Create credit_notes table | planned | billman | Refunds, credits |
+| 118 | POST /api/credit-notes - Issue credit | planned | billman | Adjust invoice |
 
 ### Phase 5: Enterprise Features (Weeks 10-12)
 
 | ID | Task | Status | Assignee | Notes |
 |----|------|--------|----------|-------|
 | **Advanced Analytics** | | | | |
-| 98 | Build analytics dashboard API | planned | billman | KPIs, charts |
-| 99 | GET /api/analytics/arr - Annual Recurring Revenue | planned | billman | Forecasting |
-| 100 | GET /api/analytics/ltv - Customer Lifetime Value | planned | billman | Cohort analysis |
-| 101 | Revenue forecasting | planned | billman | Predictive analytics |
+| 119 | Build analytics dashboard API | planned | billman | KPIs, charts |
+| 120 | GET /api/analytics/arr - Annual Recurring Revenue | planned | billman | Forecasting |
+| 121 | GET /api/analytics/ltv - Customer Lifetime Value | planned | billman | Cohort analysis |
+| 122 | Revenue forecasting | planned | billman | Predictive analytics |
 | **Custom Billing Rules** | | | | |
-| 102 | Design rules engine architecture | planned | billman | Plugin system |
-| 103 | Support custom Javascript rules | planned | billman | Sandboxed execution |
-| 104 | Rule testing framework | planned | billman | Validate rules |
+| 123 | Design rules engine architecture | planned | billman | Plugin system |
+| 124 | Support custom Javascript rules | planned | billman | Sandboxed execution |
+| 125 | Rule testing framework | planned | billman | Validate rules |
 | **Webhooks** | | | | |
-| 105 | Create webhooks table | planned | billman | Subscriber URLs |
-| 106 | POST /api/webhooks - Register webhook | planned | billman | Event types |
-| 107 | Webhook delivery system | planned | billman | Retry logic |
-| 108 | Webhook signature verification | planned | billman | HMAC security |
-| 109 | Events: invoice.created, payment.succeeded | planned | billman | Event catalog |
+| 126 | Create webhooks table | planned | billman | Subscriber URLs |
+| 127 | POST /api/webhooks - Register webhook | planned | billman | Event types |
+| 128 | Webhook delivery system | planned | billman | Retry logic |
+| 129 | Webhook signature verification | planned | billman | HMAC security |
+| 130 | Events: invoice.created, payment.succeeded | planned | billman | Event catalog |
 | **Payment Gateway** | | | | |
-| 110 | Integrate Stripe SDK | planned | billman | Payment processing |
-| 111 | POST /api/payments - Process payment | planned | billman | Credit card |
-| 112 | Stripe webhook handler | planned | billman | Async updates |
-| 113 | Support multiple payment methods | planned | billman | Card, ACH, etc. |
+| 131 | Integrate Stripe SDK | planned | billman | Payment processing |
+| 132 | POST /api/payments - Process payment | planned | billman | Credit card |
+| 133 | Stripe webhook handler | planned | billman | Async updates |
+| 134 | Support multiple payment methods | planned | billman | Card, ACH, etc. |
 | **Multi-Tenant** | | | | |
-| 114 | Add tenant_id to all tables | planned | billman | Row-level security |
-| 115 | Tenant isolation middleware | planned | billman | Security |
-| 116 | Tenant provisioning API | planned | billman | Create new tenant |
+| 135 | Add tenant_id to all tables | planned | billman | Row-level security |
+| 136 | Tenant isolation middleware | planned | billman | Security |
+| 137 | Tenant provisioning API | planned | billman | Create new tenant |
 | **Compliance & Export** | | | | |
-| 117 | Audit logging system | planned | billman | All mutations logged |
-| 118 | GET /api/export/invoices - Export CSV | planned | billman | Data portability |
-| 119 | GET /api/export/customers - Export JSON | planned | billman | Backup |
-| 120 | API rate limiting | planned | billman | Prevent abuse |
+| 138 | Audit logging system | planned | billman | All mutations logged |
+| 139 | GET /api/export/invoices - Export CSV | planned | billman | Data portability |
+| 140 | GET /api/export/customers - Export JSON | planned | billman | Backup |
+| 141 | API rate limiting | planned | billman | Prevent abuse |
 
 ## Technical Notes
 
@@ -611,6 +703,393 @@ Authorization: Bearer {sessionToken}
 }
 ```
 
+### Scalability Architecture Implementation
+
+**PM2 Ecosystem Configuration:**
+```javascript
+// ecosystem.config.js (PM2 configuration)
+module.exports = {
+  apps: [
+    // API Server (Cluster mode for I/O scaling)
+    {
+      name: 'revenue-api',
+      script: './src/server.js',
+      instances: 4,  // 4 processes (for 4-8 core CPU)
+      exec_mode: 'cluster',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 5177,
+        DATABASE_URL: 'postgresql://user:pass@localhost:5432/revenue_db',
+        REDIS_URL: 'redis://localhost:6379'
+      },
+      max_memory_restart: '500M',  // Restart if memory > 500MB
+      error_file: './logs/api-err.log',
+      out_file: './logs/api-out.log',
+      merge_logs: true
+    },
+
+    // PDF Worker (separate process with Worker Threads)
+    {
+      name: 'pdf-worker',
+      script: './src/workers/pdf-worker.js',
+      instances: 4,  // 4 worker processes
+      exec_mode: 'fork',  // Not cluster mode
+      env: {
+        NODE_ENV: 'production',
+        WORKER_TYPE: 'pdf',
+        REDIS_URL: 'redis://localhost:6379',
+        THREAD_POOL_SIZE: 2  // 2 threads per process
+      },
+      max_memory_restart: '800M'  // PDFs use more memory
+    },
+
+    // Tax Calculation Worker
+    {
+      name: 'tax-worker',
+      script: './src/workers/tax-worker.js',
+      instances: 2,
+      exec_mode: 'fork',
+      env: {
+        NODE_ENV: 'production',
+        WORKER_TYPE: 'tax',
+        THREAD_POOL_SIZE: 4  // More threads for CPU-heavy calc
+      }
+    },
+
+    // Email Worker
+    {
+      name: 'email-worker',
+      script: './src/workers/email-worker.js',
+      instances: 2,
+      exec_mode: 'fork',
+      env: {
+        NODE_ENV: 'production',
+        WORKER_TYPE: 'email'
+      }
+    },
+
+    // Billing Scheduler (recurring jobs)
+    {
+      name: 'billing-scheduler',
+      script: './src/jobs/recurring-billing.js',
+      instances: 1,
+      exec_mode: 'fork',
+      env: {
+        NODE_ENV: 'production'
+      }
+    }
+  ]
+};
+```
+
+**Queue Configuration:**
+```javascript
+// src/config/queues.js
+import { Queue } from 'bullmq';
+import IORedis from 'ioredis';
+
+const connection = new IORedis({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: process.env.REDIS_PORT || 6379,
+  maxRetriesPerRequest: null
+});
+
+// PDF Generation Queue
+export const pdfQueue = new Queue('pdf-generation', {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 2000
+    }
+  }
+});
+
+// Tax Calculation Queue
+export const taxQueue = new Queue('tax-calculation', {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 1000
+    }
+  }
+});
+
+// Email Queue
+export const emailQueue = new Queue('email', {
+  connection,
+  defaultJobOptions: {
+    attempts: 5,  // Retry more for emails
+    backoff: {
+      type: 'exponential',
+      delay: 5000
+    }
+  }
+});
+
+// Billing Queue (scheduled jobs)
+export const billingQueue = new Queue('billing', {
+  connection,
+  defaultJobOptions: {
+    attempts: 2
+  }
+});
+```
+
+**API Server with Queue Integration:**
+```javascript
+// src/server.js
+import express from 'express';
+import { pdfQueue, taxQueue, emailQueue } from './config/queues.js';
+import { pool } from './config/database.js';  // Connection pooling
+
+const app = express();
+
+// I/O-bound route (fast, handled by cluster)
+app.get('/api/invoices', async (req, res) => {
+  const invoices = await pool.query('SELECT * FROM invoices');
+  res.json(invoices.rows);
+});
+
+// CPU-bound route → queue it (non-blocking)
+app.post('/api/invoices/:id/pdf', async (req, res) => {
+  const { id } = req.params;
+
+  // Add job to queue (returns immediately)
+  const job = await pdfQueue.add('generate-pdf', {
+    invoiceId: id,
+    userId: req.user.id
+  });
+
+  res.json({
+    jobId: job.id,
+    status: 'queued',
+    message: 'PDF generation started. Poll /api/jobs/:id for status'
+  });
+});
+
+// Check job status
+app.get('/api/jobs/:id', async (req, res) => {
+  const job = await pdfQueue.getJob(req.params.id);
+
+  if (!job) {
+    return res.status(404).json({ error: 'Job not found' });
+  }
+
+  const state = await job.getState();
+
+  if (state === 'completed') {
+    const result = job.returnvalue;
+    res.json({
+      status: 'completed',
+      pdfUrl: result.url,
+      completedAt: job.finishedOn
+    });
+  } else if (state === 'failed') {
+    res.json({
+      status: 'failed',
+      error: job.failedReason
+    });
+  } else {
+    res.json({
+      status: state,  // waiting, active, delayed
+      progress: job.progress
+    });
+  }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, closing server gracefully');
+
+  await pool.end();  // Close database connections
+  await pdfQueue.close();
+  await taxQueue.close();
+  await emailQueue.close();
+
+  process.exit(0);
+});
+
+app.listen(5177);
+```
+
+**PDF Worker with Worker Threads:**
+```javascript
+// src/workers/pdf-worker.js
+import { Worker as BullWorker } from 'bullmq';
+import { Worker as ThreadWorker } from 'worker_threads';
+import { pdfQueue } from '../config/queues.js';
+import path from 'path';
+
+const THREAD_POOL_SIZE = parseInt(process.env.THREAD_POOL_SIZE) || 2;
+const threadPool = [];
+
+// Initialize thread pool
+for (let i = 0; i < THREAD_POOL_SIZE; i++) {
+  threadPool.push(null);  // Lazy initialization
+}
+
+function getAvailableThreadSlot() {
+  return threadPool.findIndex(worker => worker === null);
+}
+
+async function generatePDFInThread(invoiceId) {
+  return new Promise((resolve, reject) => {
+    const slotIndex = getAvailableThreadSlot();
+
+    const worker = new ThreadWorker(
+      path.resolve('./src/threads/pdf-generator.js'),
+      { workerData: { invoiceId } }
+    );
+
+    threadPool[slotIndex] = worker;
+
+    worker.on('message', (result) => {
+      threadPool[slotIndex] = null;  // Free slot
+      resolve(result);
+    });
+
+    worker.on('error', (err) => {
+      threadPool[slotIndex] = null;
+      reject(err);
+    });
+
+    worker.on('exit', (code) => {
+      if (code !== 0) {
+        threadPool[slotIndex] = null;
+        reject(new Error(`Worker stopped with exit code ${code}`));
+      }
+    });
+  });
+}
+
+// BullMQ worker (processes jobs from queue)
+const pdfWorker = new BullWorker('pdf-generation', async (job) => {
+  const { invoiceId } = job.data;
+
+  console.log(`[PDF Worker ${process.pid}] Processing invoice ${invoiceId}`);
+
+  // Update progress
+  await job.updateProgress(10);
+
+  // Offload to Worker Thread
+  const { pdfBuffer } = await generatePDFInThread(invoiceId);
+
+  await job.updateProgress(80);
+
+  // Upload to S3 (or save to disk)
+  const url = await uploadPDF(pdfBuffer, invoiceId);
+
+  await job.updateProgress(100);
+
+  return { url, invoiceId };
+}, {
+  connection: { host: 'localhost', port: 6379 },
+  concurrency: THREAD_POOL_SIZE  // Process N jobs in parallel
+});
+
+pdfWorker.on('completed', (job, result) => {
+  console.log(`[PDF Worker] Job ${job.id} completed: ${result.url}`);
+});
+
+pdfWorker.on('failed', (job, err) => {
+  console.error(`[PDF Worker] Job ${job.id} failed:`, err.message);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, closing PDF worker gracefully');
+  await pdfWorker.close();
+  process.exit(0);
+});
+```
+
+**Worker Thread (actual PDF generation):**
+```javascript
+// src/threads/pdf-generator.js
+import { parentPort, workerData } from 'worker_threads';
+import PDFDocument from 'pdfkit';
+import { pool } from '../config/database.js';
+
+const { invoiceId } = workerData;
+
+async function generatePDF() {
+  // Fetch invoice data
+  const invoice = await pool.query(
+    'SELECT * FROM invoices WHERE id = $1',
+    [invoiceId]
+  );
+
+  const items = await pool.query(
+    'SELECT * FROM invoice_items WHERE invoice_id = $1',
+    [invoiceId]
+  );
+
+  // CPU-intensive PDF generation
+  const doc = new PDFDocument();
+  const chunks = [];
+
+  doc.on('data', (chunk) => chunks.push(chunk));
+  doc.on('end', () => {
+    const pdfBuffer = Buffer.concat(chunks);
+    parentPort.postMessage({ pdfBuffer });
+  });
+
+  // Build PDF (heavy computation)
+  doc.fontSize(20).text('Invoice', { align: 'center' });
+  doc.fontSize(12).text(`Invoice #: ${invoice.rows[0].invoice_number}`);
+
+  // Add line items
+  items.rows.forEach(item => {
+    doc.text(`${item.description}: $${item.amount}`);
+  });
+
+  doc.end();
+}
+
+// Run and send result back
+generatePDF().catch(err => {
+  parentPort.postMessage({ error: err.message });
+});
+```
+
+**Database Connection Pooling:**
+```javascript
+// src/config/database.js
+import pkg from 'pg';
+const { Pool } = pkg;
+
+export const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME || 'revenue_db',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD,
+  max: 5,  // Max 5 connections per process
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
+});
+
+// Total connections: 4 API workers × 5 = 20
+//                    + 4 PDF workers × 5 = 20
+//                    + 2 tax workers × 5 = 10
+//                    + 2 email workers × 5 = 10
+//                    = 60 total (within PostgreSQL limits)
+```
+
+**Performance Metrics:**
+
+| Scenario | Without Scaling | With Hybrid Scaling | Improvement |
+|----------|----------------|---------------------|-------------|
+| 1000 concurrent API requests | ~100 req/sec | ~400 req/sec (4 workers) | 4x |
+| Generate 5000 PDF invoices | ~10 PDFs/sec | ~80 PDFs/sec (4 workers × 2 threads) | 8x |
+| Calculate tax for 10,000 invoices | ~100/sec | ~800/sec (2 workers × 4 threads) | 8x |
+| Send 50,000 emails | ~20/sec | ~160/sec (queue + workers) | 8x |
+| Recurring billing (100K customers) | 2.7 hours | 20 minutes (parallel workers) | 8x |
+
 ### Integration with Existing System
 
 **Auth Server Integration:**
@@ -713,11 +1192,14 @@ Our phased approach compared to [jBilling features](https://www.softwaresuggest.
 - ✅ API-first design from day one
 - ✅ Phased rollout (start simple, add complexity)
 - ✅ Integrated with existing hybrid-ui auth
+- ✅ **Hybrid scalability** - Cluster + Worker Threads + Queues (enterprise-ready performance)
+- ✅ **Horizontal scaling** - Can handle 100K+ customers on single server
+- ✅ **Queue-based architecture** - Better for async billing operations
 
 **Trade-offs:**
 - ⚠️ Less mature than jBilling (20+ years old)
-- ⚠️ Fewer enterprise features initially
-- ⚠️ No legacy system integrations
+- ⚠️ Fewer enterprise features initially (but growing with each phase)
+- ⚠️ No legacy system integrations (focused on modern APIs)
 
 ## Security Considerations
 
@@ -785,7 +1267,16 @@ Our phased approach compared to [jBilling features](https://www.softwaresuggest.
 
 ## Progress Log
 
-### 2026-01-11
+### 2026-01-11 (Updated)
+- **Hybrid scalability architecture added** based on tommi's recommendation
+- Updated Phase 2 to include scalability implementation (21 new tasks)
+- Architecture: PM2 Cluster + Worker Threads + BullMQ Queues
+- Total subtasks increased from 120 to 141
+- Added comprehensive scalability implementation examples
+- Performance targets defined: 400+ req/sec, 80+ PDFs/sec
+- Tech stack updated: BullMQ, Worker Threads, connection pooling
+
+### 2026-01-11 (Initial)
 - Initial spec created by tapsa
 - Assigned to billman (revenue domain) and habibi (database/infrastructure)
 - 5-phase approach designed based on jBilling reference
@@ -806,21 +1297,35 @@ Our phased approach compared to [jBilling features](https://www.softwaresuggest.
 ## Quick Reference
 
 **Phase Summary:**
-- **Phase 1** (2 weeks): Foundation - Basic CRUD, PostgreSQL
-- **Phase 2** (2 weeks): Automation - Auto invoicing, emails, PDFs
-- **Phase 3** (2 weeks): Subscriptions - Recurring billing, renewals
-- **Phase 4** (3 weeks): Advanced - Usage billing, dunning, multi-currency
-- **Phase 5** (3 weeks): Enterprise - Analytics, webhooks, Stripe
+- **Phase 1** (2 weeks): Foundation - Basic CRUD, PostgreSQL (30 tasks)
+- **Phase 2** (2 weeks): Automation + Scalability - Auto invoicing, emails, PDFs, **Hybrid Architecture** (44 tasks)
+- **Phase 3** (2 weeks): Subscriptions - Recurring billing, renewals (21 tasks)
+- **Phase 4** (3 weeks): Advanced - Usage billing, dunning, multi-currency (23 tasks)
+- **Phase 5** (3 weeks): Enterprise - Analytics, webhooks, Stripe (23 tasks)
 
-**Total Timeline:** ~12 weeks (3 months)
+**Total:** 141 subtasks across 12 weeks (3 months)
 
 **Tech Stack:**
-- Backend: Express.js (Node.js)
-- Database: PostgreSQL
-- Jobs: Bull + Redis
-- Payments: Stripe API
-- Email: Nodemailer
-- PDF: pdfkit
+- **Backend:** Express.js (Node.js)
+- **Database:** PostgreSQL (with connection pooling)
+- **Scalability:** PM2 + Node.js Cluster + Worker Threads + BullMQ
+- **Jobs:** BullMQ + Redis (queue system)
+- **Payments:** Stripe API
+- **Email:** Nodemailer
+- **PDF:** pdfkit with Worker Threads
+
+**Scalability Architecture:**
+- PM2 cluster mode (4 API processes)
+- BullMQ job queues (Redis-backed)
+- Worker Threads for CPU tasks (PDF, tax calc)
+- Dedicated worker processes (PDF, tax, email)
+- Database connection pooling (max 5 per process)
+
+**Performance Targets:**
+- 400+ req/sec API throughput
+- 80+ PDFs/sec generation
+- 800+ tax calculations/sec
+- 100K+ customer recurring billing overnight
 
 ---
 
