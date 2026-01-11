@@ -14,11 +14,12 @@ Hybrid UI is a production-ready platform consisting of:
 ### Key Features
 
 ✅ **Enterprise Authentication**
-- Server-side session management with Redis
+- **Azure AD (Entra ID) integration** - OAuth 2.0 with Microsoft authentication
+- Server-side session and token management with Redis
 - Periodic session validation (every 30 seconds)
 - Cross-origin authentication via URL parameters
 - Automatic logout detection across all apps
-- Graceful fallback to mock auth
+- Graceful fallback to mock auth for development
 
 ✅ **Micro-Frontend Architecture**
 - Independent apps on separate ports
@@ -94,7 +95,15 @@ npm run dev:revenue     # Revenue app
 
 ### Login
 
-Navigate to http://localhost:5173 and login with test credentials:
+Navigate to http://localhost:5173 and choose your authentication method:
+
+**Option A: Azure AD (Recommended for Production)**
+- Click "Sign in with Microsoft"
+- Login with your Azure AD credentials
+- Requires Azure AD app registration (see Configuration section)
+
+**Option B: Mock Authentication (Development)**
+Use test credentials for local development:
 
 | Username | Password | Role  |
 |----------|----------|-------|
@@ -110,9 +119,11 @@ hybrid-ui/
 │   ├── auth-server/          # Express + Redis authentication server
 │   │   ├── src/
 │   │   │   ├── index.js      # Server entry point
-│   │   │   ├── config.js     # Configuration (test users, Redis)
-│   │   │   ├── routes/       # Auth endpoints
-│   │   │   └── services/     # Session management
+│   │   │   ├── config.js     # Configuration (Azure AD, Redis, test users)
+│   │   │   ├── routes/       # Auth endpoints (mock + Azure AD)
+│   │   │   └── services/     # Session + Azure AD token management
+│   │   │       ├── session.js
+│   │   │       └── azure.js  # Azure AD OAuth integration
 │   │   └── package.json
 │   │
 │   ├── frontdoor-app/        # Authentication & app launcher (port 5173)
@@ -177,10 +188,10 @@ Each app runs on a different port and is completely independent:
 
 | App | Port | Purpose | Routes |
 |-----|------|---------|--------|
-| Frontdoor | 5173 | Auth & launcher | `/` |
+| Frontdoor | 5173 | Auth & launcher | `/`, `/auth-success` |
 | CRM | 5174 | Customer management | `/`, `/customers`, `/customers/:id` |
 | Revenue | 5175 | Financial analytics | `/`, `/dashboard`, `/invoices`, `/invoices/:id` |
-| Auth Server | 5176 | Session management | `/auth/login`, `/auth/validate`, `/auth/logout` |
+| Auth Server | 5176 | Session & OAuth | `/auth/login`, `/auth/azure/login`, `/auth/azure/callback`, `/auth/validate`, `/auth/logout` |
 
 ### Cross-Origin Authentication
 
@@ -349,8 +360,33 @@ All features are documented in the `features/` directory. See [features/README.m
 
 **Base URL:** `http://localhost:5176`
 
+#### GET /auth/azure/login
+Initiate Azure AD OAuth flow (redirects to Microsoft login).
+
+**Query Parameters:**
+- `returnTo` - URL to redirect after successful authentication
+
+**Response:**
+- HTTP 302 redirect to Azure AD login page
+
+**Example:**
+```
+GET /auth/azure/login?returnTo=http://localhost:5173
+→ Redirects to: https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize...
+```
+
+#### GET /auth/azure/callback
+Azure AD OAuth callback handler (internal - called by Azure AD).
+
+**Query Parameters:**
+- `code` - Authorization code from Azure AD
+- `state` - Encoded returnTo URL
+
+**Response:**
+- HTTP 302 redirect to frontdoor `/auth-success` with sessionToken
+
 #### POST /auth/login
-Login with username and password.
+Login with username and password (mock authentication for development).
 
 **Request:**
 ```json
@@ -447,7 +483,9 @@ Health check endpoint.
 - **Build Tool:** Vite 6.0.3
 - **Routing:** React Router v6
 - **Backend:** Express.js
-- **Session Store:** Redis
+- **Authentication:** Azure AD (Entra ID) via @azure/msal-node
+- **Session Store:** Redis (sessions + OAuth tokens)
+- **HTTP Client:** Axios
 - **Monorepo:** npm workspaces
 - **Package Manager:** npm
 
@@ -457,11 +495,48 @@ Health check endpoint.
 
 **Auth Server (.env in packages/auth-server/):**
 ```bash
+# Server Configuration
 PORT=5176
 REDIS_URL=redis://localhost:6379
 SESSION_TTL_SECONDS=1800  # 30 minutes
 NODE_ENV=development
+
+# Azure AD Configuration (Optional - for production authentication)
+# Obtain from Azure Portal > App Registrations
+# Leave empty to use mock authentication only
+AZURE_AD_TENANT_ID=your-tenant-id
+AZURE_AD_CLIENT_ID=your-client-id
+AZURE_AD_CLIENT_SECRET=your-client-secret
+AZURE_AD_REDIRECT_URI=http://localhost:5176/auth/azure/callback
 ```
+
+### Azure AD Setup
+
+To enable Azure AD authentication:
+
+1. **Create App Registration in Azure Portal:**
+   - Go to Azure Portal > App registrations > New registration
+   - Name: "Hybrid UI Authentication"
+   - Redirect URI: `http://localhost:5176/auth/azure/callback` (Web)
+   - Click Register
+
+2. **Configure API Permissions:**
+   - Microsoft Graph > Delegated permissions
+   - Add: `User.Read`, `openid`, `profile`, `email`
+   - Grant admin consent (if you have admin rights)
+
+3. **Create Client Secret:**
+   - Go to Certificates & secrets > New client secret
+   - Copy the secret value immediately (shown only once)
+
+4. **Update .env file:**
+   - Copy Tenant ID, Client ID, and Client Secret to `.env`
+   - Restart auth server
+
+5. **Production Deployment:**
+   - Update `AZURE_AD_REDIRECT_URI` to production HTTPS URL
+   - Update redirect URI in Azure App Registration
+   - Use environment variables or Azure Key Vault for secrets
 
 ### Session Configuration
 
@@ -523,6 +598,31 @@ kill -9 <PID>
 2. Session TTL too short
 3. System clock skew
 4. Check auth server logs for errors
+
+### Azure AD Login Not Working
+
+**Problem:** Clicking "Sign in with Microsoft" shows error
+
+**Possible causes:**
+1. Azure AD not configured - check `.env` file has all values
+2. Auth server not restarted after adding credentials
+3. Azure AD subscription expired
+4. Redirect URI mismatch - must match Azure Portal exactly
+5. Missing API permissions in Azure Portal
+
+**Solution:**
+```bash
+# Verify configuration loaded
+cd packages/auth-server
+node -e "import('./src/config.js').then(c => console.log('MSAL_CONFIG:', c.MSAL_CONFIG ? 'CONFIGURED' : 'NULL'))"
+
+# Check auth server logs for errors
+# Restart auth server to reload .env
+npm run dev:auth
+
+# Fall back to mock authentication for development
+# Use username/password instead of Azure AD button
+```
 
 ## Contributing
 

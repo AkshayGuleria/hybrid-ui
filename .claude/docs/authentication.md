@@ -2,7 +2,21 @@
 
 ## Overview
 
-The Hybrid UI system implements a **session token-based cross-origin authentication** pattern designed for micro-frontends running on different ports (different origins). This architecture enables secure authentication sharing across multiple independent React applications without relying on shared cookies or localStorage.
+The Hybrid UI system implements a **session token-based cross-origin authentication** pattern with **Azure AD (Entra ID) integration** designed for micro-frontends running on different ports (different origins). This architecture enables secure authentication sharing across multiple independent React applications without relying on shared cookies or localStorage.
+
+### Authentication Methods
+
+The system supports two authentication methods:
+
+1. **Azure AD (Entra ID)** - Enterprise OAuth 2.0 authentication via Microsoft
+   - Production-ready authentication
+   - OAuth 2.0 authorization code flow
+   - Server-side token storage in Redis
+   - Access and refresh tokens never exposed to browser
+
+2. **Mock Authentication** - Development fallback
+   - Accepts any username/password
+   - Useful for local development without Azure AD subscription
 
 ### Why This Architecture?
 
@@ -41,12 +55,14 @@ Each authenticated session has two pieces of data:
 - `localStorage.setItem('sessionToken', token)`
 - `localStorage.setItem('user', JSON.stringify(userData))`
 
-**Future Enhancement:**
-The sessionToken is designed to serve as a Redis key for server-side session storage, enabling:
-- Centralized session management
-- Session validation across apps
-- Remote session invalidation
-- Security features (expiration, refresh)
+**Server-Side Storage (Implemented):**
+The sessionToken serves as a Redis key for server-side session storage:
+- **Session Storage:** `session:{sessionToken}` - User data and expiry (30 min TTL)
+- **Azure AD Tokens:** `azureToken:{sessionToken}` - Access/refresh tokens (30 min TTL)
+- Centralized session management via Auth Server (port 5176)
+- Periodic session validation (every 30 seconds)
+- Remote session invalidation on logout
+- Automatic session refresh 5 minutes before expiry
 
 ### 2. Authentication Flow States
 
@@ -73,6 +89,86 @@ The sessionToken is designed to serve as a Redis key for server-side session sto
 │  - user data in localStorage ✓                      │
 │  - Can access protected app                         │
 └─────────────────────────────────────────────────────┘
+```
+
+## Azure AD Authentication Flow
+
+### Complete OAuth 2.0 Flow
+
+```
+1. User visits protected app (CRM) → Redirects to Frontdoor
+   │
+2. User clicks "Sign in with Microsoft" → Frontdoor initiates OAuth
+   │
+   └→ GET /auth/azure/login?returnTo=http://localhost:5173
+      └→ Auth Server (5176) builds Azure AD authorization URL
+         └→ Redirects to: https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize
+
+3. User authenticates with Microsoft credentials
+   │
+   └→ Azure AD validates credentials
+      └→ Redirects back: http://localhost:5176/auth/azure/callback?code=ABC123&state=XYZ
+
+4. Auth Server handles callback
+   │
+   ├→ Extract authorization code from URL
+   ├→ Exchange code for tokens (POST to Azure AD token endpoint)
+   │  └→ Receives: accessToken, refreshToken, expiresOn
+   ├→ Fetch user info from Microsoft Graph API (GET /v1.0/me)
+   │  └→ Receives: userPrincipalName, mail, displayName
+   │
+   ├→ Generate session token (UUID)
+   │
+   ├→ Store Azure AD tokens in Redis
+   │  └→ Key: azureToken:{sessionToken}
+   │  └→ Value: { accessToken, refreshToken, expiresOn }
+   │  └→ TTL: 30 minutes
+   │
+   ├→ Create user session in Redis
+   │  └→ Key: session:{sessionToken}
+   │  └→ Value: { username, email, displayName, role, authProvider: 'azure-ad' }
+   │  └→ TTL: 30 minutes
+   │
+   └→ Redirect: http://localhost:5173/auth-success?sessionToken=UUID&returnTo=CRM_URL
+
+5. Frontdoor /auth-success handler
+   │
+   ├→ Receive sessionToken from URL
+   ├→ Validate session with Auth Server (POST /auth/validate)
+   ├→ Store session in frontdoor localStorage
+   ├→ Build auth URL with session params
+   └→ Redirect to returnTo app: http://localhost:5174?sessionToken=UUID&user={...}
+
+6. Protected app (CRM) receives authentication
+   │
+   └→ Same as standard flow - stores session in localStorage
+```
+
+**Key Security Features:**
+- Access tokens NEVER touch the browser - stored only in Redis
+- Refresh tokens NEVER exposed - server-side only
+- Frontend only receives session UUIDs
+- Tokens automatically refreshed before expiration
+- Logout revokes both session and Azure AD tokens
+
+### Azure AD Logout Flow
+
+```
+1. User clicks logout → App calls POST /auth/logout
+   │
+   ├→ Auth Server receives logout request with sessionToken
+   │
+   ├→ Delete Azure AD tokens from Redis
+   │  └→ DEL azureToken:{sessionToken}
+   │
+   ├→ Delete session from Redis
+   │  └→ DEL session:{sessionToken}
+   │
+   └→ Return success
+
+2. App clears localStorage and starts logout cascade
+   │
+   └→ Standard cross-origin logout cascade continues
 ```
 
 ## Detailed Authentication Flows
@@ -622,63 +718,80 @@ localStorage.removeItem('user');
 location.reload();
 ```
 
-## Future Enhancements
+## Implemented Features
 
-### 1. Server-Side Session Management
+### 1. Server-Side Session Management ✅
 
-Replace localStorage-only auth with Redis-backed sessions:
+Redis-backed sessions implemented with Auth Server:
 
+**Endpoints:**
 ```javascript
-// Server-side API endpoint
-POST /api/auth/validate
-Headers: { Authorization: Bearer <sessionToken> }
+GET  /auth/azure/login      // Initiate Azure AD OAuth
+GET  /auth/azure/callback   // Handle Azure AD callback
+POST /auth/login            // Mock authentication (development)
+POST /auth/validate         // Validate session token
+POST /auth/logout           // Invalidate session + revoke Azure tokens
+POST /auth/refresh          // Extend session TTL
+GET  /health                // Health check
+```
 
-// Redis structure
-{
-  "session:f47ac10b-58cc-4372-a567-0e02b2c3d479": {
-    "user": { username: "john", email: "john@example.com" },
-    "createdAt": "2025-01-06T12:00:00.000Z",
-    "expiresAt": "2025-01-06T16:00:00.000Z",
-    "ipAddress": "192.168.1.1"
-  }
+**Redis Storage:**
+```javascript
+// User session
+session:{uuid} = {
+  username: "john@company.com",
+  email: "john@company.com",
+  displayName: "John Doe",
+  role: "user",
+  authProvider: "azure-ad",
+  createdAt: "2025-01-06T12:00:00.000Z",
+  expiresAt: "2025-01-06T12:30:00.000Z"
+}
+
+// Azure AD tokens (server-side only)
+azureToken:{uuid} = {
+  accessToken: "eyJ0eXAiOiJKV1QiLCJub25jZSI6...",
+  refreshToken: "0.AXoA...",
+  expiresOn: "2025-01-06T13:00:00.000Z"
 }
 ```
 
-### 2. Token Refresh Flow
+**Features:**
+- ✅ Centralized session management
+- ✅ Periodic session validation (30 seconds)
+- ✅ Server-side token storage (Azure AD)
+- ✅ Automatic session refresh (5 min before expiry)
+- ✅ Remote session invalidation
 
-Add refresh tokens for long-lived sessions:
+### 2. Single Sign-Out (SSO) ✅
 
+Implemented with dual-phase logout mechanism:
+
+**Phase 1: Logout Cascade (Immediate)**
 ```javascript
-// Store both access and refresh tokens
-localStorage.setItem('accessToken', shortLivedToken);
-localStorage.setItem('refreshToken', longLivedToken);
-
-// Automatically refresh when access token expires
-const refreshAccessToken = async (refreshToken) => {
-  const response = await fetch('/api/auth/refresh', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${refreshToken}` }
-  });
-  const { accessToken } = await response.json();
-  localStorage.setItem('accessToken', accessToken);
-};
+// URL-based cascade clears all app localStorage
+CRM logout → Frontdoor → Revenue → Frontdoor (complete)
+// Uses `?logout=true&from=app1|app2` parameter tracking
+// Completes in 2-3 seconds
 ```
 
-### 3. Single Sign-Out (SSO)
-
-Implement true SSO with server-side session invalidation:
-
+**Phase 2: Server-Side Validation (Ongoing)**
 ```javascript
 // When user logs out from any app
-POST /api/auth/logout
-Headers: { Authorization: Bearer <sessionToken> }
+POST /auth/logout
+Headers: { sessionToken: <uuid> }
 
 // Server deletes session from Redis
-// All apps validate on next request, find session invalid
-// All apps redirect to login
+await invalidateSession(sessionToken);  // Delete session:{uuid}
+await revokeAzureTokens(sessionToken);  // Delete azureToken:{uuid}
+
+// All apps detect invalid session within 30 seconds
+// Periodic validation fails → Auto-redirect to login
 ```
 
-### 4. Persistent Sessions
+## Future Enhancements
+
+### 3. Persistent Sessions
 
 Add "Remember Me" functionality:
 
@@ -686,6 +799,28 @@ Add "Remember Me" functionality:
 // Long-lived refresh token in localStorage
 // Short-lived access token in memory
 // Refresh access token on app load if expired
+// Configurable session TTL based on user preference
+```
+
+### 4. Multi-Factor Authentication (MFA)
+
+Integrate Azure AD MFA requirements:
+
+```javascript
+// Azure AD Conditional Access policies
+// Require MFA for sensitive operations
+// Step-up authentication for admin actions
+```
+
+### 5. Session Analytics
+
+Track and analyze session usage:
+
+```javascript
+// Session activity logging
+// User login patterns
+// Security anomaly detection
+// Concurrent session limits
 ```
 
 ## Reference Files

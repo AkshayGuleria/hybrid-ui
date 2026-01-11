@@ -44,6 +44,29 @@ npm install
 
 **This is the most important architectural pattern to understand:**
 
+### Authentication Methods
+
+The system supports **two authentication methods**:
+
+1. **Azure AD (Entra ID) OAuth** - Production-ready Microsoft authentication
+2. **Mock Authentication** - Development fallback (accepts any credentials)
+
+### Azure AD Authentication Flow
+
+```
+1. User clicks "Sign in with Microsoft" → Frontdoor redirects to Auth Server
+2. Auth Server → Azure AD OAuth page (login.microsoftonline.com)
+3. User authenticates with Azure AD credentials
+4. Azure AD → Auth Server callback with authorization code
+5. Auth Server exchanges code for access/refresh tokens
+6. Auth Server stores tokens in Redis (server-side only)
+7. Auth Server creates session → Frontdoor /auth-success with sessionToken
+8. Frontdoor validates session → Redirects to target app with URL params
+9. Protected app stores session in localStorage
+```
+
+### Mock Authentication Flow (Development)
+
 ### 1. Initial Access to Protected App (CRM/Revenue)
 ```javascript
 // User visits http://localhost:5174 (CRM)
@@ -54,22 +77,24 @@ window.location.href = `http://localhost:5173/?returnTo=${encodeURIComponent(win
 
 ### 2. Frontdoor Login & Redirect
 ```javascript
-// After successful login, frontdoor:
-// 1. Gets user data from its localStorage
+// After successful login (mock or Azure AD):
+// 1. Gets user data from session validation
 // 2. Encodes it as URL parameter
-// 3. Redirects back with user data:
+// 3. Redirects back with session data:
 const encodedUser = encodeURIComponent(JSON.stringify(userData));
-window.location.href = `${returnTo}?user=${encodedUser}`;
+window.location.href = `${returnTo}?sessionToken=${token}&user=${encodedUser}`;
 ```
 
 ### 3. Protected App Receives Auth
 ```javascript
 // CRM/Revenue on load:
-// 1. Checks URL for 'user' parameter
-// 2. Stores user data in its own localStorage
+// 1. Checks URL for 'sessionToken' and 'user' parameters
+// 2. Stores session data in its own localStorage
 // 3. Cleans up URL
 // 4. Reloads to pick up auth state
+const sessionToken = params.get('sessionToken');
 const userData = params.get('user');
+localStorage.setItem('sessionToken', sessionToken);
 localStorage.setItem('user', JSON.stringify(decodedUser));
 window.history.replaceState({}, '', window.location.pathname);
 window.location.reload();
@@ -81,6 +106,8 @@ window.location.reload();
 - Cannot use cookies (different origins)
 - Cannot use shared localStorage (browser security)
 - URL parameter passing is the solution for cross-origin auth transfer
+- **Azure AD tokens stored server-side** (never exposed to browser)
+- Frontend only receives session UUIDs for security
 
 ## Shared Package Architecture
 
@@ -93,9 +120,12 @@ Located: `packages/shared/src/hooks/useAuth.js`
 const { user, loading, error, login, logout, isAuthenticated } = useAuth();
 ```
 
-- Manages localStorage-based authentication
-- Mock authentication (accepts any credentials)
-- Returns user object: `{ username, email, role, loginTime }`
+- Manages localStorage-based authentication with server-side validation
+- Supports both Azure AD and mock authentication
+- Periodic session validation (every 30 seconds)
+- Automatic session refresh before expiration
+- Returns user object: `{ username, email, role, loginTime, authProvider }`
+- `authProvider` is either `'azure-ad'` or `'mock'`
 
 ### 2. `TopNavigation` Component
 Located: `packages/shared/src/components/TopNavigation.jsx`
@@ -282,11 +312,49 @@ When adding a new app to the system:
 - Shared package uses `"@hybrid-ui/shared": "*"` in dependencies
 - Not `"workspace:*"` (npm workspaces syntax issue)
 
+### Azure AD Authentication
+- **Token Security**: Access and refresh tokens are NEVER exposed to browser
+- All tokens stored server-side in Redis with pattern: `azureToken:{sessionToken}`
+- Frontend only receives session UUIDs
+- **Logout**: Must revoke both session and Azure tokens
+- **Configuration**: Requires .env file with Azure AD credentials
+- **Fallback**: Mock authentication always available for development
+- **Redirect URI**: Must exactly match Azure Portal app registration
+- **Production**: Update redirect URI to HTTPS domain before deployment
+
+## Auth Server Architecture
+
+The auth server (`packages/auth-server/`) provides:
+
+**Files:**
+- `src/index.js` - Express server entry point
+- `src/config.js` - Azure AD config, Redis config, test users
+- `src/routes/auth.js` - Authentication endpoints
+- `src/services/session.js` - Redis session management
+- `src/services/azure.js` - Azure AD OAuth integration
+
+**Endpoints:**
+- `GET /auth/azure/login` - Initiate Azure AD OAuth flow
+- `GET /auth/azure/callback` - Handle Azure AD callback
+- `POST /auth/login` - Mock authentication (development)
+- `POST /auth/validate` - Validate session token
+- `POST /auth/logout` - Invalidate session + revoke Azure tokens
+- `POST /auth/refresh` - Extend session TTL
+- `GET /health` - Health check
+
+**Redis Storage:**
+- `session:{uuid}` - User session data (30 min TTL)
+- `azureToken:{uuid}` - Azure AD access/refresh tokens (30 min TTL)
+
 ## Tech Stack
 
 - **React** 18.3.1
 - **Vite** 6.0.3 (build tool & dev server)
 - **npm workspaces** (monorepo management)
+- **Express.js** (auth server backend)
+- **Redis** (session and token storage)
+- **Azure AD (Entra ID)** - OAuth 2.0 authentication via @azure/msal-node
+- **Axios** - HTTP client for Microsoft Graph API
 - **localStorage** (per-origin session storage)
 - **URL parameters** (cross-origin auth transfer)
 

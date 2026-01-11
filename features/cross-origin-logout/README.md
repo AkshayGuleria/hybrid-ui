@@ -236,7 +236,9 @@ useEffect(() => {
 
 **Auth Server API:**
 ```javascript
-// POST /auth/login
+// POST /auth/login (mock authentication)
+// GET /auth/azure/login (Azure AD OAuth initiation)
+// GET /auth/azure/callback (Azure AD OAuth callback)
 // Returns: { sessionToken, user, expiresAt }
 
 // POST /auth/validate
@@ -245,6 +247,9 @@ useEffect(() => {
 
 // POST /auth/logout
 // Body: { sessionToken }
+// Server actions:
+//   1. Revoke Azure AD tokens (if present): DEL azureToken:{sessionToken}
+//   2. Invalidate session: DEL session:{sessionToken}
 // Returns: { success: true }
 
 // POST /auth/refresh
