@@ -12,6 +12,7 @@ This directory contains feature specifications and tracks project progress for t
 | [api-layer](./api-layer/) | **done** | high | yap, billman | 100% |
 | [crm-crud](./crm-crud/) | **done** | medium | yap | 100% |
 | [cross-origin-logout](./cross-origin-logout/) | **done** | high | niko, habibi | Phase 1 ✅ / Phase 2 ✅ |
+| [containerization](./containerization/) | planned | high | habibi | 0% (28 subtasks) |
 
 ## How It Works
 
@@ -62,6 +63,8 @@ features/
 ├── crm-crud/                # Customer CRUD operations
 │   └── README.md
 ├── cross-origin-logout/     # Fix cross-origin logout localStorage clearing
+│   └── README.md
+├── containerization/        # Dockerize multi-app system
 │   └── README.md
 └── [future-features]/
     └── README.md
