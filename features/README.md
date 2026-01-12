@@ -13,7 +13,8 @@ This directory contains feature specifications and tracks project progress for t
 | [crm-crud](./crm-crud/) | **done** | medium | yap | 100% |
 | [cross-origin-logout](./cross-origin-logout/) | **done** | high | niko, habibi | Phase 1 ✅ / Phase 2 ✅ |
 | [containerization](./containerization/) | planned | high | habibi | 0% (28 subtasks) |
-| [revenue-backend](./revenue-backend/) | planned | high | billman, habibi | 0% (141 subtasks, 5 phases + scalability) |
+
+> **Note:** Revenue backend work has been moved to a separate repository at `/Users/akshay.guleria/work/revenue-mgmt` for independent development.
 
 ## How It Works
 
@@ -66,8 +67,6 @@ features/
 ├── cross-origin-logout/     # Fix cross-origin logout localStorage clearing
 │   └── README.md
 ├── containerization/        # Dockerize multi-app system
-│   └── README.md
-├── revenue-backend/         # Revenue management backend (jBilling-inspired)
 │   └── README.md
 └── [future-features]/
     └── README.md
