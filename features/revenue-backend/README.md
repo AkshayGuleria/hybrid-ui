@@ -104,111 +104,111 @@ Build a **B2B Enterprise Revenue Management Backend System** in phases, starting
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Revenue Frontend                         │
+│                     Revenue Frontend                        │
 │       (React - Revenue App for Finance Teams)               │
 └────────────────────┬────────────────────────────────────────┘
                      │ HTTP REST API
                      │ + Webhooks (enterprise integrations)
 ┌────────────────────▼────────────────────────────────────────┐
-│                   PM2 Process Manager                        │
+│                   PM2 Process Manager                       │
 ├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │   API Server (Cluster Mode - 4 processes)         │    │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │   API Server (Cluster Mode - 4 processes)           │    │
 │  │                                                     │    │
-│  │   Worker 1   Worker 2   Worker 3   Worker 4       │    │
-│  │    Express    Express    Express    Express       │    │
-│  │   Port 5177                                        │    │
+│  │   Worker 1   Worker 2   Worker 3   Worker 4         │    │
+│  │    Express    Express    Express    Express         │    │
+│  │   Port 5177                                         │    │
 │  │                                                     │    │
-│  │   Routes (I/O-bound - fast, with audit logging):  │    │
-│  │   • GET  /api/accounts      - List accounts       │    │
-│  │   • GET  /api/contracts     - List contracts      │    │
-│  │   • GET  /api/invoices      - List invoices       │    │
-│  │   • POST /api/accounts      - Create account      │    │
-│  │   • POST /api/contracts     - Create contract     │    │
+│  │   Routes (I/O-bound - fast, with audit logging):    │    │
+│  │   • GET  /api/accounts      - List accounts         │    │
+│  │   • GET  /api/contracts     - List contracts        │    │
+│  │   • GET  /api/invoices      - List invoices         │    │
+│  │   • POST /api/accounts      - Create account        │    │
+│  │   • POST /api/contracts     - Create contract       │    │
 │  │                                                     │    │
-│  │   Routes (CPU-bound/complex - queued):            │    │
+│  │   Routes (CPU-bound/complex - queued):              │    │
 │  │   • POST /api/billing/generate       → Contract Billing Queue │
 │  │   • POST /api/billing/consolidated   → Consolidated Billing │
-│  │   • POST /api/invoices/:id/pdf       → PDF Queue  │    │
-│  │   • POST /api/invoices/tax           → Tax Queue  │    │
+│  │   • POST /api/invoices/:id/pdf       → PDF Queue    │    │
+│  │   • POST /api/invoices/tax           → Tax Queue    │    │
 │  │   • POST /api/purchase-orders/approve → Approval Workflow │
-│  │                                                     │    │
-│  │   Enterprise Features:                             │    │
-│  │   • Credit limit checks (before invoice creation) │    │
-│  │   • Hierarchical queries (recursive CTEs)         │    │
-│  │   • Audit trail (all mutations logged)            │    │
-│  │   • Transaction support (ACID guarantees)         │    │
+│  │                                                      │    │
+│  │   Enterprise Features:                              │    │
+│  │   • Credit limit checks (before invoice creation)   │    │
+│  │   • Hierarchical queries (recursive CTEs)           │    │
+│  │   • Audit trail (all mutations logged)              │    │
+│  │   • Transaction support (ACID guarantees)           │    │
 │  └──────────────────┬──────────────────────────────────┘    │
 │                     │ Offload heavy/scheduled work          │
-│                     ▼                                        │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │       BullMQ Job Queues (Redis)                    │    │
+│                     ▼                                       │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │       BullMQ Job Queues (Redis)                     │    │
 │  │                                                     │    │
-│  │  contract-billing-queue   consolidated-billing-queue │  │
-│  │  pdf-queue   tax-queue   email-queue              │    │
-│  │  renewal-alerts-queue   webhook-delivery-queue    │    │
-│  │  approval-workflow-queue   dunning-queue          │    │
+│  │  contract-billing-queue  consolidated-billing-queue │    │
+│  │  pdf-queue   tax-queue   email-queue                │    │
+│  │  renewal-alerts-queue   webhook-delivery-queue      │    │
+│  │  approval-workflow-queue   dunning-queue            │    │
 │  └──────────────────┬──────────────────────────────────┘    │
 │                     │ Process async                         │
-│                     ▼                                        │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │   Dedicated Worker Processes (B2B Optimized)      │    │
+│                     ▼                                       │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │   Dedicated Worker Processes (B2B Optimized)        │    │
 │  │                                                     │    │
-│  │   • Contract Billing Workers (2 processes)        │    │
-│  │     - Scheduled contract invoice generation        │    │
-│  │     - Seat-based calculation                       │    │
-│  │     - Volume discount application                  │    │
+│  │   • Contract Billing Workers (2 processes)          │    │
+│  │     - Scheduled contract invoice generation         │    │
+│  │     - Seat-based calculation                        │    │
+│  │     - Volume discount application                   │    │
 │  │                                                     │    │
-│  │   • Consolidated Billing Workers (2 processes)    │    │
-│  │     - Roll-up invoices across subsidiaries        │    │
-│  │     - Hierarchical aggregation                     │    │
+│  │   • Consolidated Billing Workers (2 processes)      │    │
+│  │     - Roll-up invoices across subsidiaries          │    │
+│  │     - Hierarchical aggregation                      │    │
 │  │                                                     │    │
-│  │   • PDF Workers (3 processes × 2 threads each)    │    │
-│  │     - Generate enterprise-branded invoices         │    │
-│  │     - Complex invoice templates                    │    │
+│  │   • PDF Workers (3 processes × 2 threads each)      │    │
+│  │     - Generate enterprise-branded invoices          │    │
+│  │     - Complex invoice templates                     │    │
 │  │                                                     │    │
-│  │   • Tax Workers (2 processes × 2 threads each)    │    │
-│  │     - Multi-jurisdiction tax calculations          │    │
-│  │     - Tax rate lookup and caching                  │    │
+│  │   • Tax Workers (2 processes × 2 threads each)      │    │
+│  │     - Multi-jurisdiction tax calculations           │    │
+│  │     - Tax rate lookup and caching                   │    │
 │  │                                                     │    │
-│  │   • Email Workers (2 processes)                   │    │
-│  │     - Invoice delivery to billing contacts         │    │
-│  │     - Contract renewal notifications               │    │
+│  │   • Email Workers (2 processes)                     │    │
+│  │     - Invoice delivery to billing contacts          │    │
+│  │     - Contract renewal notifications                │    │
 │  │                                                     │    │
-│  │   • Renewal Alert Workers (1 process)             │    │
-│  │     - Track contract expirations                   │    │
-│  │     - Send 90/60/30 day alerts                     │    │
+│  │   • Renewal Alert Workers (1 process)               │    │
+│  │     - Track contract expirations                    │    │
+│  │     - Send 90/60/30 day alerts                      │    │
 │  │                                                     │    │
-│  │   • Webhook Workers (2 processes)                 │    │
-│  │     - Deliver enterprise event notifications       │    │
-│  │     - Retry logic with exponential backoff         │    │
-│  └────────────────────────────────────────────────────┘    │
+│  │   • Webhook Workers (2 processes)                   │    │
+│  │     - Deliver enterprise event notifications        │    │
+│  │     - Retry logic with exponential backoff          │    │
+│  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Data Layer (Persistent Storage)                 │
-│                                                              │
-│  ┌──────────────────────┐    ┌─────────────────────────┐   │
-│  │  PostgreSQL Database │    │  Redis (Job Queues)     │   │
-│  │                      │    │                         │   │
-│  │  B2B Enterprise Tables:  │  Queues:                │   │
-│  │  • accounts          │    │  • contract-billing-queue │ │
+│              Data Layer (Persistent Storage)                │
+│                                                             │
+│  ┌──────────────────────┐    ┌─────────────────────────┐    │
+│  │  PostgreSQL Database │    │  Redis (Job Queues)     │    │
+│  │                      │    │                         │    │
+│  │  B2B Enterprise Tables:   │  Queues:                │    │
+│  │  • accounts          │    │  • contract-billing-queue │  │
 │  │  • contracts         │    │  • consolidated-billing-queue │ │
-│  │  • products          │    │  • pdf-queue            │   │
-│  │  • invoices          │    │  • tax-queue            │   │
-│  │  • invoice_items     │    │  • email-queue          │   │
-│  │  • purchase_orders   │    │  • renewal-alerts-queue │   │
-│  │  • payments          │    │  • webhook-delivery-queue │ │
+│  │  • products          │    │  • pdf-queue            │    │
+│  │  • invoices          │    │  • tax-queue            │    │
+│  │  • invoice_items     │    │  • email-queue          │    │
+│  │  • purchase_orders   │    │  • renewal-alerts-queue │    │
+│  │  • payments          │    │  • webhook-delivery-queue │  │
 │  │  • audit_log         │    │  • approval-workflow-queue │ │
-│  │                      │    │  • dunning-queue        │   │
-│  │  Indices for B2B:    │    │                         │   │
-│  │  • parent_account_id │    │  Cache:                 │   │
-│  │  • contract_id       │    │  • Product catalog      │   │
-│  │  • po_number         │    │  • Exchange rates       │   │
-│  │  • end_date          │    │  • Volume discount tiers │  │
-│  └──────────────────────┘    └─────────────────────────┘   │
+│  │                      │    │  • dunning-queue        │    │
+│  │  Indices for B2B:    │    │                         │    │
+│  │  • parent_account_id │    │  Cache:                 │    │
+│  │  • contract_id       │    │  • Product catalog      │    │
+│  │  • po_number         │    │  • Exchange rates       │    │
+│  │  • end_date          │    │  • Volume discount tiers │   │
+│  └──────────────────────┘    └─────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
